@@ -6,16 +6,20 @@ Implementation of 16-bit virtual machine (VM).
 - A virtual machine is a mock for a real machine, in our case a CPU.
 - The main value that CPU provides is to run instructions.
 - We would follow the LC-3 architecture of a CPU to build our virtual machine.
-- There are some assumptions and pre-requisites that need to be filled to be able to run a program (a set of instructions).
-- The machine would expose a component called "Memeory" where the programmer must load their program instructions.
-- Once loaded, programmer would start the machine.
-- If booted correctly, the machine will start executing and stepping through each instruction of the program one at a time.
-- The instruction itself would be an Assembly instruction as the language instruction set is smaller and easier to implement.
+- To run the machine, a program code has to be provided which is nothing but an array of instructions.
+- The instructions themselves need to be in machine code, each instruction being a 16-bit value.
+- The machine will simply execute and step through each instruction of the program one at a time.
+- The instruction-set would be of Assembly language as it is smaller and easier to implement.
 
 ## How does it work internally?
-- Other than the memory, machine needs some components with special meaning to control the flow of execution, handle intermediate results and provide final result of a running program.
-- These special components are modelled as "Registers".
-- For the purpose of LC-3 architecture, we need 8 registers. (more details on what and why here (pending)).
+- Machine has two components -
+    - Registers - For control purpose. Each register can hold a 16 bit value. There are 10 registers in this implementation -
+        - R0-R7 - value storage during instruction execution
+        - RPC - program counter for machine to track which instruction to be executed
+        - RCOND - value storage of previous instructions for conditional instructions
+    - Memory - For data storage purpose only. This provides a larger storage area than registers and is used purely for storage of data that can not be fit into storage registers (R0-R7). Each memory slot can also hold a 16-bit value.
+- Machine loads the program code into memory at a certain address and sets `RPC` to that.
+- Machine keeps loading the instruction at the memory address referred by `RPC` and executing the business logic of that instruction. If the instruction is `OP_TRAP`, machine exits the program.
 
 # References
 - https://www.jmeiners.com/lc3-vm/#:lc3.c_2

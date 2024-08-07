@@ -77,6 +77,7 @@ impl Machine {
         Ok(())
     }
 
+    // Instruction format [OP_CODE(4 bit), Parameters (12 bit)];
     fn step(&mut self) -> anyhow::Result<Option<u16>> {
         let pc = self.registers[RPC];
         let instr = self.memory.read(pc as usize, 1)?[0];
@@ -97,6 +98,7 @@ impl Machine {
         }
     }
 
+    // Instruction format [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 000, Source-Register-2 (3 bit)];
     fn add(&mut self, instr: u16) -> anyhow::Result<()> {
         let dest_reg = ((instr >> 9) & 7) as usize;
         let source_reg_1 = ((instr >> 6) & 7) as usize;
@@ -105,6 +107,7 @@ impl Machine {
         Ok(())
     }
 
+    // Instruction format [OP_CODE(4 bit), Dest Register (3 bit), 0, Value (8 bit)];
     fn load(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
         self.registers[reg] = instr & 15;
