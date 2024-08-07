@@ -1,6 +1,15 @@
 # Overview
 Implementation of 16-bit virtual machine (VM).
 
+# Run
+```
+saurabh@Saurabh-Raider:/mnt/d/Saurabh/Personal/vmrs$ RUST_BACKTRACE=1 cargo run -q
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running `target/debug/vmrs`
+Final - [3, 6, 9, 25, 0, 0, 0, 0, 4, 0]
+```
+
 # Implementation
 ## What value and API does a VM provide?
 - A virtual machine is a mock for a real machine, in our case a CPU.

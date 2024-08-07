@@ -98,12 +98,20 @@ impl Machine {
         }
     }
 
-    // Instruction format [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 000, Source-Register-2 (3 bit)];
+    // Instruction formats-
+    // Register mode - [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 000, Source-Register-2 (3 bit)];
+    // Immediate mode - [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 1, Value (5 bit)];
     fn add(&mut self, instr: u16) -> anyhow::Result<()> {
         let dest_reg = ((instr >> 9) & 7) as usize;
         let source_reg_1 = ((instr >> 6) & 7) as usize;
-        let source_reg_2 = (instr & 7) as usize;
-        self.registers[dest_reg] = self.registers[source_reg_1] + self.registers[source_reg_2];
+        let mode = ((instr >> 5) & 1) as usize;
+        let data = if mode == 1 {
+            instr & ((1 << 5) - 1)
+        } else {
+            let source_reg_2 = (instr & 7) as usize;
+            self.registers[source_reg_2]
+        };
+        self.registers[dest_reg] = self.registers[source_reg_1] + data;
         Ok(())
     }
 
