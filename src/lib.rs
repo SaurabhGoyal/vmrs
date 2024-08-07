@@ -8,9 +8,13 @@ const R4: usize = 4;
 const R5: usize = 5;
 const R6: usize = 6;
 const R7: usize = 7;
-const PC: usize = 8;
+const RPC: usize = 8;
 const RCOND: usize = 9;
 const REG_COUNT: usize = 10;
+
+const OP_ADD: u16 = 1;
+const OP_LOAD: u16 = 2;
+const OP_TRAP: u16 = 15;
 
 trait Addressable {
     fn read(&self, addr: usize, slot_count: usize) -> anyhow::Result<&[u16]>;
@@ -36,7 +40,7 @@ impl Addressable for Memory {
         if addr + slot_count > self.slots.len() {
             anyhow::bail!("Invalid address and slot count");
         }
-        Ok(self.slots[addr..slot_count].as_ref())
+        Ok(self.slots[addr..addr + slot_count].as_ref())
     }
 
     fn write(&mut self, addr: usize, values: &[u16]) -> anyhow::Result<()> {
@@ -59,13 +63,31 @@ pub struct Machine {
 
 #[derive(Debug)]
 pub struct Dump {
-    registers: [u16; REG_COUNT],
-    memory: Vec<u16>,
+    pub registers: [u16; REG_COUNT],
+    pub memory: Vec<u16>,
 }
 
 impl Machine {
-    pub fn step(&mut self) -> anyhow::Result<()> {
-        todo!()
+    pub fn run(&mut self, addr: u16, program_code: &[u16]) -> anyhow::Result<()> {
+        self.memory.write(addr as usize, program_code)?;
+        self.registers[RPC] = addr;
+        while let Some(pc) = self.step()? {
+            self.registers[RPC] = pc;
+        }
+        Ok(())
+    }
+
+    fn step(&mut self) -> anyhow::Result<Option<u16>> {
+        let pc = self.registers[RPC];
+        let instr = self.memory.read(pc as usize, 1)?[0];
+        let op_code = instr >> 12;
+        match op_code {
+            OP_ADD => self.add(instr)?,
+            OP_LOAD => self.load(instr)?,
+            OP_TRAP => return Ok(None),
+            _ => {}
+        }
+        Ok(Some(pc + 1))
     }
 
     pub fn dump(&self) -> Dump {
@@ -73,6 +95,20 @@ impl Machine {
             registers: self.registers,
             memory: self.memory.dump().to_owned(),
         }
+    }
+
+    fn add(&mut self, instr: u16) -> anyhow::Result<()> {
+        let dest_reg = ((instr >> 9) & 7) as usize;
+        let source_reg_1 = ((instr >> 6) & 7) as usize;
+        let source_reg_2 = (instr & 7) as usize;
+        self.registers[dest_reg] = self.registers[source_reg_1] + self.registers[source_reg_2];
+        Ok(())
+    }
+
+    fn load(&mut self, instr: u16) -> anyhow::Result<()> {
+        let reg = ((instr >> 9) & 7) as usize;
+        self.registers[reg] = instr & 15;
+        Ok(())
     }
 }
 
