@@ -2,12 +2,25 @@
 Implementation of 16-bit virtual machine (VM).
 
 # Run
+## Add positive numbers
 ```
-saurabh@Saurabh-Raider:/mnt/d/Saurabh/Personal/vmrs$ RUST_BACKTRACE=1 cargo run -q
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_pos_nums.o
 
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
-     Running `target/debug/vmrs`
-Final - [3, 6, 9, 25, 0, 0, 0, 0, 4, 0]
+Final - [3, 6, 9, 17, 0, 0, 0, 0, 4, 0]
+```
+
+## Add negative numbers with total sum as positive
+```
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_pos_result.o
+
+Final - [3, 6, 9, 2, 0, 0, 0, 0, 4, 0]
+```
+
+## Add negative numbers with total sum as negative
+```
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_neg_result.o
+
+Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
 ```
 
 # Implementation

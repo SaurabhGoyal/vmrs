@@ -1,14 +1,15 @@
+use std::io::stdin;
+
 use vmrs::Machine;
 
 fn main() {
     let mut vm = Machine::default();
-    let program_code: [u16; 5] = [
-        0b0010000000000011, // Load R0 3
-        0b0010001000000110, // Load R1 6
-        0b0001010000000001, // Add R2 R0 R1
-        0b0001011010110000, // Add R3 R2 16
-        0b1111000000000000, // Trap #for halt
-    ];
+    let mut program_code = vec![];
+    for line in stdin().lines() {
+        let Ok(line) = line else { continue };
+        let instr = line.split('#').collect::<Vec<&str>>()[0].replace(' ', "");
+        program_code.push(u16::from_str_radix(instr.as_str(), 2).unwrap())
+    }
     vm.run(0, program_code.as_slice()).unwrap();
     println!("Final - {:?}", vm.dump().registers);
 }

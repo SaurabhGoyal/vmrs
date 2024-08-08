@@ -63,8 +63,8 @@ pub struct Machine {
 
 #[derive(Debug)]
 pub struct Dump {
-    pub registers: [u16; REG_COUNT],
-    pub memory: Vec<u16>,
+    pub registers: [i16; REG_COUNT],
+    pub memory: Vec<i16>,
 }
 
 impl Machine {
@@ -93,32 +93,41 @@ impl Machine {
 
     pub fn dump(&self) -> Dump {
         Dump {
-            registers: self.registers,
-            memory: self.memory.dump().to_owned(),
+            registers: self.registers.map(|n| n as i16),
+            memory: self
+                .memory
+                .dump()
+                .to_owned()
+                .iter()
+                .map(|n| *n as i16)
+                .collect::<Vec<i16>>(),
         }
     }
 
     // Instruction formats-
     // Register mode - [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 000, Source-Register-2 (3 bit)];
-    // Immediate mode - [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 1, Value (5 bit)];
+    // Immediate mode - [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 1, Value-Sign (1-bit), Value-Number (4 bit)];
     fn add(&mut self, instr: u16) -> anyhow::Result<()> {
         let dest_reg = ((instr >> 9) & 7) as usize;
         let source_reg_1 = ((instr >> 6) & 7) as usize;
         let mode = ((instr >> 5) & 1) as usize;
-        let data = if mode == 1 {
-            instr & ((1 << 5) - 1)
-        } else {
-            let source_reg_2 = (instr & 7) as usize;
-            self.registers[source_reg_2]
-        };
-        self.registers[dest_reg] = self.registers[source_reg_1] + data;
+        let data = get_sign_extended_value(
+            if mode == 1 {
+                instr & ((1 << 5) - 1)
+            } else {
+                let source_reg_2 = (instr & 7) as usize;
+                self.registers[source_reg_2]
+            },
+            5,
+        );
+        self.registers[dest_reg] = ((self.registers[source_reg_1] as i16) + (data as i16)) as u16;
         Ok(())
     }
 
-    // Instruction format [OP_CODE(4 bit), Dest Register (3 bit), 0, Value (8 bit)];
+    // Instruction format [OP_CODE(4 bit), Dest Register (3 bit), 0, Value-Sign (1-bit), Value-Number (7 bit)];
     fn load(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
-        self.registers[reg] = instr & 15;
+        self.registers[reg] = get_sign_extended_value(instr & ((1 << 8) - 1), 8);
         Ok(())
     }
 }
@@ -130,4 +139,23 @@ impl Default for Machine {
             memory: Box::new(Memory::default()),
         }
     }
+}
+
+fn get_sign_extended_value(mut val: u16, msb_index: usize) -> u16 {
+    // If value's sign bit is 1, value is negative.
+    if (val >> (msb_index - 1)) % 2 == 1 {
+        // Create a mask which sets all bits left to the msb of the value to 1 to represent it as negative in 16 bit.
+        let mut mask: u16 = 0;
+        let mut bit = 16;
+        loop {
+            mask |= if bit >= msb_index - 1 { 1 } else { 0 };
+            mask <<= 1;
+            if bit == 0 {
+                break;
+            }
+            bit -= 1;
+        }
+        val |= mask
+    }
+    val
 }
