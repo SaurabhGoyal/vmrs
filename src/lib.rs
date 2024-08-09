@@ -1,5 +1,8 @@
 const MEMORY_SLOT_COUNT: usize = 1 << 12;
 
+// `R0`-`R7` are data storage registers. They are modelled as unsigned int16 but machine itself doesn't
+// assign any numeric schemantic to them. For machine, they are 16-bit data storage which may store
+// anything in it.
 const R0: usize = 0;
 const R1: usize = 1;
 const R2: usize = 2;
@@ -8,8 +11,14 @@ const R4: usize = 4;
 const R5: usize = 5;
 const R6: usize = 6;
 const R7: usize = 7;
+// `RPC` is a dedicated register to store which next instruction is to be executed. This enables non-linear
+// execution of code which is powered by `go-to / jump` statement enabling connstructs such as `if-else` and `loop`.
 const RPC: usize = 8;
-const RCOND: usize = 9;
+// `RSTAT` is a dedicated register for things such as sign of last result (+ve / -ve), status of last operation
+// (underflow / overflow), augmented information of last result (carry) and various interrupts. This is mostly
+// used in the context of a branching decision as a quick lookup for deciding factors.
+const RSTAT: usize = 9;
+
 const REG_COUNT: usize = 10;
 
 const OP_ADD: u16 = 1;
