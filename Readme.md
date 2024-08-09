@@ -23,6 +23,13 @@ RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_neg_result.o
 Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
 ```
 
+## Add negative numbers with total sum as negative using load indirect op
+```
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_neg_result_indirect_load.o
+
+Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
+```
+
 # Implementation
 ## What value and API does a VM provide?
 - A virtual machine is a mock for a real machine, in our case a CPU.
@@ -51,6 +58,9 @@ Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
     - To support non-linear execution of code which is powered by `go-to / jump` statement enabling connstructs such as `if-else` and `loop`.
 - **Why do we need a dedicated register (`RSTAT`) for maintaining the sign of the result of previous instruction when the same can be checked from the result itself?**
     - `RSTAT` is a dedicated register for a quick lookup of multiple things such as sign of last result (+ve / -ve), status of last operation (underflow / overflow), augmented information of last result (carry) and various interrupts. While the sign can be directly checked from result, the check is mostly conducted in some kind of branching decision context which is where status register provides information in generic sense.
+    - This register has been named as `RCOND` in the referring blog post and is also called as `Condition Code Register` or simply `Condition Register` sometimes.
+- **We are using a dedicated op-code for not treating an instruction as operation, for storing raw data in memory. This wastes 4 bits, is there any workaround?**
+    - <Pending>
 
 # References
 - https://www.jmeiners.com/lc3-vm/#:lc3.c_2

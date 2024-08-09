@@ -18,12 +18,24 @@ const RPC: usize = 8;
 // (underflow / overflow), augmented information of last result (carry) and various interrupts. This is mostly
 // used in the context of a branching decision as a quick lookup for deciding factors.
 const RSTAT: usize = 9;
+const RSTAT_CONDITION_ZERO: u16 = 0;
+const RSTAT_CONDITION_POSITIVE: u16 = 1;
+const RSTAT_CONDITION_NEGATIVE: u16 = 2;
+
+// Instruction formats-
+// - Register mode - [OP_CODE(4 bits), Dest Register (3 bits), Source-Register-1 (3 bits), 000, Source-Register-2 (3 bits)]
+// - Immediate mode - [OP_CODE(4 bits), Dest Register (3 bits), Source-Register-1 (3 bits), 1, Value-Sign (1-bit), Value-Number (4 bits)]
+const OP_ADD: u16 = 1;
+// Instruction format [OP_CODE(4 bits), Dest Register (3 bits), 0, Value-Sign (1-bits), Value-Number (7 bits)]
+const OP_LOAD: u16 = 2;
+// Instruction format [OP_CODE(4 bits), Dest Register (3 bits), Relative-Memory-Address (9 bits)];
+const OP_LOAD_INDIRECT: u16 = 3;
+// Instruction format [OP_CODE(4 bits), Data (12 bits)]
+const OP_DATA: u16 = 14;
+const OP_TRAP: u16 = 15;
 
 const REG_COUNT: usize = 10;
-
-const OP_ADD: u16 = 1;
-const OP_LOAD: u16 = 2;
-const OP_TRAP: u16 = 15;
+const LSB_MASK_12_BIT: u16 = 4095; // 0000111111111111
 
 trait Addressable {
     fn read(&self, addr: usize, slot_count: usize) -> anyhow::Result<&[u16]>;
@@ -56,7 +68,7 @@ impl Addressable for Memory {
         if addr + values.len() > self.slots.len() {
             anyhow::bail!("Invalid value size for given address");
         }
-        self.slots[addr..values.len()].copy_from_slice(values);
+        self.slots[addr..(addr + values.len())].copy_from_slice(values);
         Ok(())
     }
 
@@ -86,7 +98,7 @@ impl Machine {
         Ok(())
     }
 
-    // Instruction format [OP_CODE(4 bit), Parameters (12 bit)];
+    // Instruction format [OP_CODE(4 bits), Parameters (12 bits)];
     fn step(&mut self) -> anyhow::Result<Option<u16>> {
         let pc = self.registers[RPC];
         let instr = self.memory.read(pc as usize, 1)?[0];
@@ -94,6 +106,8 @@ impl Machine {
         match op_code {
             OP_ADD => self.add(instr)?,
             OP_LOAD => self.load(instr)?,
+            OP_LOAD_INDIRECT => self.load_indirect(instr)?,
+            OP_DATA => self.write_data(instr)?,
             OP_TRAP => return Ok(None),
             _ => {}
         }
@@ -113,9 +127,6 @@ impl Machine {
         }
     }
 
-    // Instruction formats-
-    // Register mode - [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 000, Source-Register-2 (3 bit)];
-    // Immediate mode - [OP_CODE(4 bit), Dest Register (3 bit), Source-Register-1 (3 bit), 1, Value-Sign (1-bit), Value-Number (4 bit)];
     fn add(&mut self, instr: u16) -> anyhow::Result<()> {
         let dest_reg = ((instr >> 9) & 7) as usize;
         let source_reg_1 = ((instr >> 6) & 7) as usize;
@@ -130,13 +141,40 @@ impl Machine {
             5,
         );
         self.registers[dest_reg] = ((self.registers[source_reg_1] as i16) + (data as i16)) as u16;
+        self.update_stat(dest_reg)?;
         Ok(())
     }
 
-    // Instruction format [OP_CODE(4 bit), Dest Register (3 bit), 0, Value-Sign (1-bit), Value-Number (7 bit)];
     fn load(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
         self.registers[reg] = get_sign_extended_value(instr & ((1 << 8) - 1), 8);
+        self.update_stat(reg)?;
+        Ok(())
+    }
+
+    fn write_data(&mut self, instr: u16) -> anyhow::Result<()> {
+        let val = get_sign_extended_value(instr & LSB_MASK_12_BIT, 12);
+        self.memory.write(self.registers[RPC] as usize, &[val])?;
+        Ok(())
+    }
+    fn load_indirect(&mut self, instr: u16) -> anyhow::Result<()> {
+        let reg = ((instr >> 9) & 7) as usize;
+        let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
+        let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
+        self.registers[reg] = self.memory.read(abs_addr as usize, 1)?[0];
+        self.update_stat(reg)?;
+        Ok(())
+    }
+
+    fn update_stat(&mut self, dest_reg: usize) -> anyhow::Result<()> {
+        let val = self.registers[dest_reg];
+        self.registers[RSTAT] = match val {
+            0 => RSTAT_CONDITION_ZERO,
+            _ => match val >> 15 {
+                0 => RSTAT_CONDITION_POSITIVE,
+                _ => RSTAT_CONDITION_NEGATIVE,
+            },
+        };
         Ok(())
     }
 }
