@@ -24,3 +24,13 @@
 - Loads the value at the memory address given in the instruction to the destination register for later use.
 - Important thing to note is that the address will be relative to the program code instructions and not absolute. This means that the relative address can be negative and should be sign-extended. 
 - Syntax - `0011 (4 bits) | Dest Register (3 bits) | Relative-Memory-Address (9 bits)`
+
+## Jump (OpCode - 0100)
+- Sets program counter to the memory address given in the instruction.
+- Enables non-liner execution of program.
+- Syntax - `0100 (4 bits) | 000 (3 bits) | Relative-Memory-Address (9 bits)`
+
+## JumpIfSign (OpCode - 0101)
+- Sets program counter to the memory address given in the instruction if the register given in instruction has negative value.
+- Enables non-liner execution of program.
+- Syntax - `0101 (4 bits) | Dest Register (3 bits) | Relative-Memory-Address (9 bits)`

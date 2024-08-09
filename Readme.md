@@ -29,6 +29,57 @@ RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_neg_result_in
 
 Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
 ```
+## Infinite loop (With forced cutoff in run function after 30 iterations)
+```
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/loop_infinite.o
+
+Step - [3, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+Step - [3, 6, 0, 0, 0, 0, 0, 0, 1, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+```
+
+## Finite loop
+```
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/loop_finite.o
+
+Step - [2, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+Step - [2, -5, 0, 0, 0, 0, 0, 0, 1, 2]
+Step - [2, -5, -3, 0, 0, 0, 0, 0, 2, 2]
+Step - [2, -5, -3, 1, 0, 0, 0, 0, 3, 1]
+Step - [2, -5, -2, 1, 0, 0, 0, 0, 4, 2]
+Step - [2, -5, -2, 1, 0, 0, 0, 0, 5, 2]
+Step - [2, -5, -1, 1, 0, 0, 0, 0, 4, 2]
+Step - [2, -5, -1, 1, 0, 0, 0, 0, 5, 2]
+Step - [2, -5, 0, 1, 0, 0, 0, 0, 4, 0]
+Step - [2, -5, 0, 1, 0, 0, 0, 0, 5, 0]
+```
 
 # Implementation
 ## What value and API does a VM provide?
@@ -60,7 +111,9 @@ Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
     - `RSTAT` is a dedicated register for a quick lookup of multiple things such as sign of last result (+ve / -ve), status of last operation (underflow / overflow), augmented information of last result (carry) and various interrupts. While the sign can be directly checked from result, the check is mostly conducted in some kind of branching decision context which is where status register provides information in generic sense.
     - This register has been named as `RCOND` in the referring blog post and is also called as `Condition Code Register` or simply `Condition Register` sometimes.
 - **We are using a dedicated op-code for not treating an instruction as operation, for storing raw data in memory. This wastes 4 bits, is there any workaround?**
-    - <Pending>
+    - [Pending]
+- **Why is an address needed to load the program code? While I haven't used any custom address, i.e. loaded the program code simply at 0th address, the blog post suggest to use 0x3000, why?**
+    - [Pending]
 
 # References
 - https://www.jmeiners.com/lc3-vm/#:lc3.c_2
