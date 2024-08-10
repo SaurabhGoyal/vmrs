@@ -150,7 +150,7 @@ Final - [5, 13, 8, 0, 0, 0, 0, -1, 5, 1]
 - **We are using a dedicated op-code for not treating an instruction as operation, for storing raw data in memory. This wastes 4 bits, is there any workaround?**
     - [Pending]
 - **Why is an address needed to load the program code? While I haven't used any custom address, i.e. loaded the program code simply at 0th address, the blog post suggest to use 0x3000, why?**
-    - [Pending]
+    - The reason is simply that in real world, machine may have more things that it needs to manage in the memory other than just the program code to be executed. One such thing is trap routine code which is nothing but some special instructions that machine itself has hardcoded to provide functionalities such as talking to IO devices and halt the program. 
 
 # References
 - https://www.jmeiners.com/lc3-vm/#:lc3.c_2

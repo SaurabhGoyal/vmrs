@@ -21,6 +21,7 @@ const RSTAT: usize = 9;
 const RSTAT_CONDITION_ZERO: u16 = 0;
 const RSTAT_CONDITION_POSITIVE: u16 = 1;
 const RSTAT_CONDITION_NEGATIVE: u16 = 2;
+const RSTAT_CONDITION_HALT: u16 = 3;
 
 // Instruction formats-
 // - Register mode - [OP_CODE(4 bits), Dest Register (3 bits), Source-Register-1 (3 bits), 000, Source-Register-2 (3 bits)]
@@ -38,7 +39,10 @@ const OP_JUMP_IF_SIGN: u16 = 5;
 const OP_LOAD_REGISTER: u16 = 6;
 // Instruction format [OP_CODE(4 bits), Data (12 bits)]
 const OP_DATA: u16 = 14;
+// Instruction format [OP_CODE(4 bits), 0000 (4 bits), TrapCode (12 bits)]
 const OP_TRAP: u16 = 15;
+
+const TRAP_CODE_HALT: u16 = 0;
 
 const REG_COUNT: usize = 10;
 const MAX_LOOP_ITERS: u16 = 30;
@@ -100,11 +104,13 @@ impl Machine {
         self.memory.write(addr as usize, program_code)?;
         self.registers[RPC] = addr;
         let mut ic = 0;
-        while let Some(pc) = self.step()? {
+        loop {
+            // Execute step
+            self.step()?;
             println!("Step - {:?}", self.dump().registers);
-            self.registers[RPC] = pc;
             ic += 1;
-            if ic == MAX_LOOP_ITERS {
+            // Check if need to halt
+            if self.registers[RSTAT] == RSTAT_CONDITION_HALT || ic == MAX_LOOP_ITERS {
                 break;
             }
         }
@@ -112,23 +118,22 @@ impl Machine {
     }
 
     // Instruction format [OP_CODE(4 bits), Parameters (12 bits)];
-    fn step(&mut self) -> anyhow::Result<Option<u16>> {
+    fn step(&mut self) -> anyhow::Result<()> {
         let pc = self.registers[RPC];
         let instr = self.memory.read(pc as usize, 1)?[0];
         let op_code = instr >> 12;
-        let mut new_pc = None;
         match op_code {
             OP_ADD => self.add(instr)?,
             OP_LOAD => self.load(instr)?,
             OP_LOAD_INDIRECT => self.load_indirect(instr)?,
             OP_LOAD_REGISTER => self.load_register(instr)?,
-            OP_JUMP => new_pc = Some(self.jump(instr)?),
-            OP_JUMP_IF_SIGN => new_pc = self.jump_if_sign(instr)?,
+            OP_JUMP => self.jump(instr)?,
+            OP_JUMP_IF_SIGN => self.jump_if_sign(instr)?,
             OP_DATA => self.write_data(instr)?,
-            OP_TRAP => return Ok(None),
+            OP_TRAP => self.trap(instr)?,
             _ => {}
         }
-        Ok(new_pc.or(Some(pc + 1)))
+        Ok(())
     }
 
     pub fn dump(&self) -> Dump {
@@ -159,6 +164,7 @@ impl Machine {
         );
         self.registers[dest_reg] = ((self.registers[source_reg_1] as i16) + (data as i16)) as u16;
         self.update_stat(dest_reg)?;
+        self.registers[RPC] += 1;
         Ok(())
     }
 
@@ -166,6 +172,7 @@ impl Machine {
         let reg = ((instr >> 9) & 7) as usize;
         self.registers[reg] = get_sign_extended_value(instr & ((1 << 8) - 1), 8);
         self.update_stat(reg)?;
+        self.registers[RPC] += 1;
         Ok(())
     }
 
@@ -175,6 +182,7 @@ impl Machine {
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
         self.registers[reg] = self.memory.read(abs_addr as usize, 1)?[0];
         self.update_stat(reg)?;
+        self.registers[RPC] += 1;
         Ok(())
     }
 
@@ -183,29 +191,47 @@ impl Machine {
         let source_reg = ((instr >> 6) & 7) as usize;
         self.registers[dest_reg] = self.registers[source_reg];
         self.update_stat(dest_reg)?;
+        self.registers[RPC] += 1;
         Ok(())
     }
 
-    fn jump(&mut self, instr: u16) -> anyhow::Result<u16> {
+    fn jump(&mut self, instr: u16) -> anyhow::Result<()> {
         let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
-        Ok(abs_addr)
+        self.registers[RPC] = abs_addr;
+        Ok(())
     }
 
-    fn jump_if_sign(&mut self, instr: u16) -> anyhow::Result<Option<u16>> {
+    fn jump_if_sign(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
         let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
         self.update_stat(reg)?;
         if self.registers[RSTAT] == RSTAT_CONDITION_NEGATIVE {
-            return Ok(Some(abs_addr));
+            self.registers[RPC] = abs_addr;
+        } else {
+            self.registers[RPC] += 1;
         }
-        Ok(None)
+        Ok(())
     }
 
     fn write_data(&mut self, instr: u16) -> anyhow::Result<()> {
         let val = get_sign_extended_value(instr & LSB_MASK_12_BIT, 12);
         self.memory.write(self.registers[RPC] as usize, &[val])?;
+        self.registers[RPC] += 1;
+        Ok(())
+    }
+
+    fn trap(&mut self, instr: u16) -> anyhow::Result<()> {
+        let trap_code = instr & ((1 << 8) - 1);
+        match trap_code {
+            TRAP_CODE_HALT => {
+                self.registers[RSTAT] = RSTAT_CONDITION_HALT;
+            }
+            _ => {
+                self.registers[RPC] += 1;
+            }
+        }
         Ok(())
     }
 

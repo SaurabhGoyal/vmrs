@@ -38,3 +38,13 @@
 - Sets program counter to the memory address given in the instruction if the register given in instruction has negative value.
 - Enables non-liner execution of program.
 - Syntax - `0101 (4 bits) | Dest Register (3 bits) | Relative-Memory-Address (9 bits)`
+
+## Trap (OpCode - 1111)
+- Sets a trap to the instruction execution for machine to do things outside the instruction in the program code.
+- These things can be things such as talking to IO decices or halting the program. Simple way to imagine is that this is a set of machine defined functionalities to interact with outside the program-code and machine scope.
+- Since these things are something that machine implements on its own and are not part of user-defined instructions, machine implements them itself and stores the implementation logic in memory. This is the reason, machine may need some part of its memory for its own things and program code would be stored at a non-zero address, typically 0x3000.
+- Because of multiple types of traps and their distinct nature of being a foreign-function-interface instruction, they have been categorised into one opcode where the trap type can be passed as an operand, instead of creating a dedicated opcode for each trap. https://www.jmeiners.com/lc3-vm/#trap-routines
+    > Trap for additional functionalities You may be wondering why the trap codes are not included in the instructions. This is because they do not actually introduce any new functionality to the LC-3, they just provide a convenient way to perform a task (similar to OS system calls). In the official LC-3 simulator, trap routines are written in assembly. When a trap code is called, the PC is moved to that code’s address. The CPU executes the procedure’s instructions, and when it is complete, the PC is reset to the location following the initial call.
+
+    > Note: This is why programs start at address 0x3000 instead of 0x0. The lower addresses are left empty to leave space for the trap routine code.
+- Syntax - `1111 (4 bits) | 0000 (4 bits) | TrapCode (8 bits)`
