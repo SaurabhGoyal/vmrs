@@ -1,4 +1,4 @@
-const MEMORY_SLOT_COUNT: usize = 1 << 12;
+const MEMORY_SLOT_COUNT: usize = 1 << 4;
 
 // `R0`-`R7` are data storage registers. They are modelled as unsigned int16 but machine itself doesn't
 // assign any numeric schemantic to them. For machine, they are 16-bit data storage which may store
@@ -34,6 +34,8 @@ const OP_LOAD_INDIRECT: u16 = 3;
 const OP_JUMP: u16 = 4;
 // Instruction format [OP_CODE(4 bits), Register (3 bits), Relative-Memory-Address (9 bits)];
 const OP_JUMP_IF_SIGN: u16 = 5;
+// Instruction format [OP_CODE(4 bits), Dest Register (3 bits), Source-Register-1 (3 bits), 000000 (6 bits)];
+const OP_LOAD_REGISTER: u16 = 6;
 // Instruction format [OP_CODE(4 bits), Data (12 bits)]
 const OP_DATA: u16 = 14;
 const OP_TRAP: u16 = 15;
@@ -119,6 +121,7 @@ impl Machine {
             OP_ADD => self.add(instr)?,
             OP_LOAD => self.load(instr)?,
             OP_LOAD_INDIRECT => self.load_indirect(instr)?,
+            OP_LOAD_REGISTER => self.load_register(instr)?,
             OP_JUMP => new_pc = Some(self.jump(instr)?),
             OP_JUMP_IF_SIGN => new_pc = self.jump_if_sign(instr)?,
             OP_DATA => self.write_data(instr)?,
@@ -172,6 +175,14 @@ impl Machine {
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
         self.registers[reg] = self.memory.read(abs_addr as usize, 1)?[0];
         self.update_stat(reg)?;
+        Ok(())
+    }
+
+    fn load_register(&mut self, instr: u16) -> anyhow::Result<()> {
+        let dest_reg = ((instr >> 9) & 7) as usize;
+        let source_reg = ((instr >> 6) & 7) as usize;
+        self.registers[dest_reg] = self.registers[source_reg];
+        self.update_stat(dest_reg)?;
         Ok(())
     }
 

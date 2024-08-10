@@ -25,6 +25,10 @@
 - Important thing to note is that the address will be relative to the program code instructions and not absolute. This means that the relative address can be negative and should be sign-extended. 
 - Syntax - `0011 (4 bits) | Dest Register (3 bits) | Relative-Memory-Address (9 bits)`
 
+## LoadRegister (OpCode - 0110)
+- Loads the value stored in the source register given in the instruction to the destination register for later use.
+- Syntax - `0001 (4 bits) | Dest Register (3 bits) | Source-Register (3 bits) | 000000 (6 bits)`
+
 ## Jump (OpCode - 0100)
 - Sets program counter to the memory address given in the instruction.
 - Enables non-liner execution of program.

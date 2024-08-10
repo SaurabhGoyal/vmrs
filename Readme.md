@@ -81,6 +81,43 @@ Step - [2, -5, 0, 1, 0, 0, 0, 0, 4, 0]
 Step - [2, -5, 0, 1, 0, 0, 0, 0, 5, 0]
 ```
 
+## Finite loop
+```
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/fib.o
+
+Step - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+Step - [0, 1, 0, 0, 0, 0, 0, 0, 1, 1]
+Step - [0, 1, 0, 0, 0, 0, 0, 3, 2, 1]
+Step - [0, 1, 1, 0, 0, 0, 0, 3, 3, 1]
+Step - [0, 1, 1, 0, 0, 0, 0, 3, 4, 1]
+Step - [1, 1, 1, 0, 0, 0, 0, 3, 5, 1]
+Step - [1, 1, 1, 0, 0, 0, 0, -1, 6, 2]
+Step - [1, 1, 1, 0, 0, 0, 0, -1, 7, 2]
+Step - [1, 1, 1, 0, 0, 0, 0, -1, 3, 1]
+Step - [1, 2, 1, 0, 0, 0, 0, -1, 4, 1]
+Step - [1, 2, 1, 0, 0, 0, 0, -1, 5, 1]
+Step - [1, 2, 1, 0, 0, 0, 0, -1, 6, 2]
+Step - [1, 2, 1, 0, 0, 0, 0, -1, 7, 2]
+Step - [1, 2, 2, 0, 0, 0, 0, -1, 3, 1]
+Step - [1, 3, 2, 0, 0, 0, 0, -1, 4, 1]
+Step - [2, 3, 2, 0, 0, 0, 0, -1, 5, 1]
+Step - [2, 3, 2, 0, 0, 0, 0, -1, 6, 2]
+Step - [2, 3, 2, 0, 0, 0, 0, -1, 7, 2]
+Step - [2, 3, 3, 0, 0, 0, 0, -1, 3, 1]
+Step - [2, 5, 3, 0, 0, 0, 0, -1, 4, 1]
+Step - [3, 5, 3, 0, 0, 0, 0, -1, 5, 1]
+Step - [3, 5, 3, 0, 0, 0, 0, -1, 6, 2]
+Step - [3, 5, 3, 0, 0, 0, 0, -1, 7, 2]
+Step - [3, 5, 5, 0, 0, 0, 0, -1, 3, 1]
+Step - [3, 8, 5, 0, 0, 0, 0, -1, 4, 1]
+Step - [5, 8, 5, 0, 0, 0, 0, -1, 5, 1]
+Step - [5, 8, 5, 0, 0, 0, 0, -1, 6, 2]
+Step - [5, 8, 5, 0, 0, 0, 0, -1, 7, 2]
+Step - [5, 8, 8, 0, 0, 0, 0, -1, 3, 1]
+Step - [5, 13, 8, 0, 0, 0, 0, -1, 4, 1]
+Final - [5, 13, 8, 0, 0, 0, 0, -1, 5, 1]
+```
+
 # Implementation
 ## What value and API does a VM provide?
 - A virtual machine is a mock for a real machine, in our case a CPU.
@@ -119,3 +156,4 @@ Step - [2, -5, 0, 1, 0, 0, 0, 0, 5, 0]
 - https://www.jmeiners.com/lc3-vm/#:lc3.c_2
 - https://www.youtube.com/watch?v=oArXOAhzOdY&list=PLUkZG7_4JtUL22HycWYR_J-1xJo7rQGhr
 - https://www.andreinc.net/2021/12/01/writing-a-simple-vm-in-less-than-125-lines-of-c
+

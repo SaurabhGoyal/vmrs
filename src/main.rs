@@ -14,4 +14,5 @@ fn main() {
         program_code.push(u16::from_str_radix(instr.as_str(), 2).unwrap())
     }
     vm.run(0, program_code.as_slice()).unwrap();
+    println!("Final - {:?}", vm.dump().registers);
 }
