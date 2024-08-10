@@ -81,7 +81,7 @@ Step - [2, -5, 0, 1, 0, 0, 0, 0, 4, 0]
 Step - [2, -5, 0, 1, 0, 0, 0, 0, 5, 0]
 ```
 
-## Finite loop
+## Fibonacci series till nth number
 ```
 RUST_BACKTRACE=1 cargo run -q < src/sample_programs/fib.o
 
@@ -118,6 +118,14 @@ Step - [5, 13, 8, 0, 0, 0, 0, -1, 4, 1]
 Final - [5, 13, 8, 0, 0, 0, 0, -1, 5, 1]
 ```
 
+## Fibonacci series till nth number
+```
+RUST_BACKTRACE=1 cargo run -q < src/sample_programs/getc.o
+
+Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 0]
+Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
+Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
+```
 # Implementation
 ## What value and API does a VM provide?
 - A virtual machine is a mock for a real machine, in our case a CPU.

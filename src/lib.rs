@@ -1,3 +1,5 @@
+use std::io::{stdin, Read};
+
 const MEMORY_SLOT_COUNT: usize = 1 << 4;
 
 // `R0`-`R7` are data storage registers. They are modelled as unsigned int16 but machine itself doesn't
@@ -42,7 +44,10 @@ const OP_DATA: u16 = 14;
 // Instruction format [OP_CODE(4 bits), 0000 (4 bits), TrapCode (12 bits)]
 const OP_TRAP: u16 = 15;
 
+// Halt the program
 const TRAP_CODE_HALT: u16 = 0;
+// Get character from keyboard
+const TRAP_CODE_GETC: u16 = 1;
 
 const REG_COUNT: usize = 10;
 const MAX_LOOP_ITERS: u16 = 30;
@@ -225,13 +230,25 @@ impl Machine {
     fn trap(&mut self, instr: u16) -> anyhow::Result<()> {
         let trap_code = instr & ((1 << 8) - 1);
         match trap_code {
-            TRAP_CODE_HALT => {
-                self.registers[RSTAT] = RSTAT_CONDITION_HALT;
-            }
+            TRAP_CODE_HALT => self.trap_halt()?,
+            TRAP_CODE_GETC => self.trap_getc()?,
             _ => {
                 self.registers[RPC] += 1;
             }
         }
+        Ok(())
+    }
+
+    fn trap_halt(&mut self) -> anyhow::Result<()> {
+        self.registers[RSTAT] = RSTAT_CONDITION_HALT;
+        Ok(())
+    }
+
+    fn trap_getc(&mut self) -> anyhow::Result<()> {
+        if let Some(Ok(byte)) = stdin().bytes().next() {
+            self.registers[R0] = byte as u16;
+        }
+        self.registers[RPC] += 1;
         Ok(())
     }
 
