@@ -25,6 +25,7 @@ const RSTAT_CONDITION_POSITIVE: u16 = 1;
 const RSTAT_CONDITION_NEGATIVE: u16 = 2;
 const RSTAT_CONDITION_HALT: u16 = 3;
 
+const OP_BREAK: u16 = 0;
 // Instruction formats-
 // - Register mode - [OP_CODE(4 bits), Dest Register (3 bits), Source-Register-1 (3 bits), 000, Source-Register-2 (3 bits)]
 // - Immediate mode - [OP_CODE(4 bits), Dest Register (3 bits), Source-Register-1 (3 bits), 1, Value-Sign (1-bit), Value-Number (4 bits)]
@@ -39,8 +40,6 @@ const OP_JUMP: u16 = 4;
 const OP_JUMP_IF_SIGN: u16 = 5;
 // Instruction format [OP_CODE(4 bits), Dest Register (3 bits), Source-Register-1 (3 bits), 000000 (6 bits)];
 const OP_LOAD_REGISTER: u16 = 6;
-// Instruction format [OP_CODE(4 bits), Data (12 bits)]
-const OP_DATA: u16 = 14;
 // Instruction format [OP_CODE(4 bits), 0000 (4 bits), TrapCode (12 bits)]
 const OP_TRAP: u16 = 15;
 
@@ -105,8 +104,11 @@ pub struct Dump {
 }
 
 impl Machine {
-    pub fn run(&mut self, addr: u16, program_code: &[u16]) -> anyhow::Result<()> {
-        self.memory.write(addr as usize, program_code)?;
+    pub fn load(&mut self, addr: u16, data: &[u16]) -> anyhow::Result<()> {
+        self.memory.write(addr as usize, data)?;
+        Ok(())
+    }
+    pub fn run(&mut self, addr: u16) -> anyhow::Result<()> {
         self.registers[RPC] = addr;
         let mut ic = 0;
         loop {
@@ -128,14 +130,14 @@ impl Machine {
         let instr = self.memory.read(pc as usize, 1)?[0];
         let op_code = instr >> 12;
         match op_code {
-            OP_ADD => self.add(instr)?,
-            OP_LOAD => self.load(instr)?,
-            OP_LOAD_INDIRECT => self.load_indirect(instr)?,
-            OP_LOAD_REGISTER => self.load_register(instr)?,
-            OP_JUMP => self.jump(instr)?,
-            OP_JUMP_IF_SIGN => self.jump_if_sign(instr)?,
-            OP_DATA => self.write_to_memory(instr)?,
-            OP_TRAP => self.trap(instr)?,
+            OP_BREAK => self.registers[RSTAT] = RSTAT_CONDITION_HALT,
+            OP_ADD => self.instr_add(instr)?,
+            OP_LOAD => self.instr_load(instr)?,
+            OP_LOAD_INDIRECT => self.instr_load_indirect(instr)?,
+            OP_LOAD_REGISTER => self.instr_load_register(instr)?,
+            OP_JUMP => self.instr_jump(instr)?,
+            OP_JUMP_IF_SIGN => self.instr_jump_if_sign(instr)?,
+            OP_TRAP => self.instr_trap(instr)?,
             _ => {}
         }
         Ok(())
@@ -154,7 +156,7 @@ impl Machine {
         }
     }
 
-    fn add(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn instr_add(&mut self, instr: u16) -> anyhow::Result<()> {
         let dest_reg = ((instr >> 9) & 7) as usize;
         let source_reg_1 = ((instr >> 6) & 7) as usize;
         let mode = ((instr >> 5) & 1) as usize;
@@ -175,14 +177,14 @@ impl Machine {
         Ok(())
     }
 
-    fn load(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn instr_load(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
         self.write_to_register(reg, get_sign_extended_value(instr & ((1 << 8) - 1), 8))?;
         self.registers[RPC] += 1;
         Ok(())
     }
 
-    fn load_indirect(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn instr_load_indirect(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
         let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
@@ -191,7 +193,7 @@ impl Machine {
         Ok(())
     }
 
-    fn load_register(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn instr_load_register(&mut self, instr: u16) -> anyhow::Result<()> {
         let dest_reg = ((instr >> 9) & 7) as usize;
         let source_reg = ((instr >> 6) & 7) as usize;
         self.write_to_register(dest_reg, self.registers[source_reg])?;
@@ -199,14 +201,14 @@ impl Machine {
         Ok(())
     }
 
-    fn jump(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn instr_jump(&mut self, instr: u16) -> anyhow::Result<()> {
         let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
         self.registers[RPC] = abs_addr;
         Ok(())
     }
 
-    fn jump_if_sign(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn instr_jump_if_sign(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
         let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
@@ -218,14 +220,7 @@ impl Machine {
         Ok(())
     }
 
-    fn write_to_memory(&mut self, instr: u16) -> anyhow::Result<()> {
-        let val = get_sign_extended_value(instr & LSB_MASK_12_BIT, 12);
-        self.memory.write(self.registers[RPC] as usize, &[val])?;
-        self.registers[RPC] += 1;
-        Ok(())
-    }
-
-    fn trap(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn instr_trap(&mut self, instr: u16) -> anyhow::Result<()> {
         let trap_code = instr & ((1 << 8) - 1);
         match trap_code {
             TRAP_CODE_HALT => self.trap_halt()?,

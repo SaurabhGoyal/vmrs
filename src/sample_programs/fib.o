@@ -7,4 +7,3 @@
 0010 1111 1111 1111 # Add R7 R7 -1              // n -= 1
 0100 1111 1111 1100 # JUMP_IF_SIGN R7 -4        // GoTo #loop if n < 0
 1111 0000 0000 0000 # Trap #for halt
-

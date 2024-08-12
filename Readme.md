@@ -2,36 +2,58 @@
 Implementation of 16-bit virtual machine (VM).
 
 # Run
-## Add positive numbers
+`RUST_BACKTRACE=1 cargo run -q` 
+### Add positive numbers
 ```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_pos_nums.o
-
-Final - [3, 6, 9, 17, 0, 0, 0, 0, 4, 0]
-```
-
-## Add negative numbers with total sum as positive
-```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_pos_result.o
-
-Final - [3, 6, 9, 2, 0, 0, 0, 0, 4, 0]
-```
-
-## Add negative numbers with total sum as negative
-```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_neg_result.o
-
-Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
+load src/sample_programs/adder_pos_nums.o 0
+run 0
+Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5800, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+Step - [3, 0, 0, 0, 0, 0, 0, 0, 1, 1]
+Step - [3, 6, 0, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 17, 0, 0, 0, 0, 4, 1]
+Step - [3, 6, 9, 17, 0, 0, 0, 0, 4, 3]
+Final - Dump { registers: [3, 6, 9, 17, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5121, 5800, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
 ```
 
-## Add negative numbers with total sum as negative using load indirect op
+### Add negative numbers with total sum as positive
 ```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/adder_neg_nums_neg_result_indirect_load.o
+load src/sample_programs/adder_neg_nums_pos_result.o 0
+run 0
+Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+Step - [3, 0, 0, 0, 0, 0, 0, 0, 1, 1]
+Step - [3, 6, 0, 0, 0, 0, 0, 0, 2, 1]
+Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
+Step - [3, 6, 9, 2, 0, 0, 0, 0, 4, 1]
+Step - [3, 6, 9, 2, 0, 0, 0, 0, 4, 3]
+Final - Dump { registers: [3, 6, 9, 2, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+```
 
-Final - [3, 6, 9, -9, 0, 0, 0, 0, 4, 0]
+### Add negative numbers with total sum as negative
 ```
-## Infinite loop (With forced cutoff in run function after 30 iterations)
+load src/sample_programs/adder_neg_nums_neg_result.o 0
+run 0
+Final - Dump { registers: [3, 6, 9, 2, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
 ```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/loop_infinite.o
+
+### Add negative numbers with total sum as negative using load indirect op
+```
+load src/sample_programs/data_load_negative_num.o 0
+load src/sample_programs/adder_neg_nums_neg_result_indirect_load.o 1
+run 1
+Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 8194, 13310, 5121, 5818, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+Step - [2, 0, 0, 0, 0, 0, 0, 0, 2, 1]
+Step - [2, -5, 0, 0, 0, 0, 0, 0, 3, 2]
+Step - [2, -5, -3, 0, 0, 0, 0, 0, 4, 2]
+Step - [2, -5, -3, -9, 0, 0, 0, 0, 5, 2]
+Step - [2, -5, -3, -9, 0, 0, 0, 0, 5, 3]
+Final - Dump { registers: [2, -5, -3, -9, 0, 0, 0, 0, 5, 3], memory: [-5, 8194, 13310, 5121, 5818, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+```
+### Infinite loop (With forced cutoff in run function after 30 iterations)
+```
+load src/sample_programs/loop_infinite.o 0
+run 0
 
 Step - [3, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Step - [3, 6, 0, 0, 0, 0, 0, 0, 1, 1]
@@ -65,9 +87,10 @@ Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
 Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
 ```
 
-## Finite loop
+### Finite loop
 ```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/loop_finite.o
+load src/sample_programs/loop_finite.o 0
+run 0
 
 Step - [2, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Step - [2, -5, 0, 0, 0, 0, 0, 0, 1, 2]
@@ -81,9 +104,10 @@ Step - [2, -5, 0, 1, 0, 0, 0, 0, 4, 0]
 Step - [2, -5, 0, 1, 0, 0, 0, 0, 5, 0]
 ```
 
-## Fibonacci series till nth number
+### Fibonacci series till nth number
 ```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/fib.o
+load src/sample_programs/fib.o 0
+run 0
 
 Step - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 Step - [0, 1, 0, 0, 0, 0, 0, 0, 1, 1]
@@ -118,9 +142,10 @@ Step - [5, 13, 8, 0, 0, 0, 0, -1, 4, 1]
 Final - [5, 13, 8, 0, 0, 0, 0, -1, 5, 1]
 ```
 
-## Trap with getchar and halt
+### Trap with getchar and halt
 ```
-RUST_BACKTRACE=1 cargo run -q < src/sample_programs/getc.o
+load src/sample_programs/getc.o 0
+run 0
 
 Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 0]
 Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
@@ -130,7 +155,7 @@ Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
 ## What value and API does a VM provide?
 - A virtual machine is a mock for a real machine, in our case a CPU.
 - The main value that CPU provides is to run instructions.
-- We would follow the LC-3 architecture of a CPU to build our virtual machine.
+- This implementation is inspired by LC-3 architecture of a CPU to build the virtual machine BUT would not implement or follow it completely. 
 - To run the machine, a program code has to be provided which is nothing but an array of instructions.
 - The instructions themselves need to be in machine code, each instruction being a 16-bit value.
 - The machine will simply execute and step through each instruction of the program one at a time.
@@ -149,8 +174,10 @@ Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
         - RPC - program counter for machine to track which instruction to be executed
         - RCOND - value storage of previous instructions for conditional instructions
     - Memory - For data storage purpose only. This provides a larger storage area than registers and is used purely for storage of data that can not be fit into storage registers (R0-R7). Each memory slot can also hold a 16-bit value.
-- Machine loads the program code into memory at a certain address and sets `RPC` to that.
-- Machine keeps loading the instruction at the memory address referred by `RPC` and executing the business logic of that instruction. If the instruction is `OP_TRAP`, machine exits the program.
+- Machine exposes two APIs -
+    - `Load` - any arbitrary data in the memory. Programmer should use it to load data and program code into memory at desired addresses. (This is programmer's responsibility that the addresses of the data in the program code point correctly to the loaded data in memory.)
+    - `Run` - run the program code stored at given address. Machine sets `RPC` to that address and starts execution.
+- Machine keeps loading the instruction at the memory address referred by `RPC` and executing the business logic of that instruction. If the instruction is `OP_TRAP` with `TRAP_HALT`, machine exits the program.
 - Machine also provides a virtual component called **"Memory Mapped Registers"** which is nothing but memory area which has is used for control purpose and not just data storage purpose. The main usecase is for handling IO from devices, since they can be dynamic, machine doesn't map registers to their signals and uses memory instead as memory is more dispensable than registers.
 
 ## Doubts
@@ -162,14 +189,14 @@ Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
 - **Why do we need a dedicated register (`RSTAT`) for maintaining the sign of the result of previous instruction when the same can be checked from the result itself?**
     - `RSTAT` is a dedicated register for a quick lookup of multiple things such as sign of last result (+ve / -ve), status of last operation (underflow / overflow), augmented information of last result (carry) and various interrupts. While the sign can be directly checked from result, the check is mostly conducted in some kind of branching decision context which is where status register provides information in generic sense.
     - This register has been named as `RCOND` in the referring blog post and is also called as `Condition Code Register` or simply `Condition Register` sometimes.
-- **We are using a dedicated op-code for not treating an instruction as operation, for storing raw data in memory. This wastes 4 bits, is there any workaround?**
-    - [Pending]
+- ~~**We are using a dedicated op-code for not treating an instruction as operation, for storing raw data in memory. This wastes 4 bits, is there any workaround?**~~
+    - Using the two step (load, run) process now instead of the single step (run-with-load), resolving this issue.
 - **Why is an address needed to load the program code? While I haven't used any custom address, i.e. loaded the program code simply at 0th address, the blog post suggest to use 0x3000, why?**
     - The reason is simply that in real world, machine may have more things that it needs to manage in the memory other than just the program code to be executed. One such thing is trap routine code which is nothing but some special instructions that machine itself has hardcoded to provide functionalities such as talking to IO devices and halt the program. 
 
 # References
-- https://en.wikipedia.org/wiki/Little_Computer_3
-- https://en.wikipedia.org/wiki/Little_man_computer
-- https://www.jmeiners.com/lc3-vm/#:lc3.c_2
-- https://www.youtube.com/watch?v=oArXOAhzOdY&list=PLUkZG7_4JtUL22HycWYR_J-1xJo7rQGhr
-- https://www.andreinc.net/2021/12/01/writing-a-simple-vm-in-less-than-125-lines-of-c
+- [https://en.wikipedia.org/wiki/Little_Computer_3](https://en.wikipedia.org/wiki/Little_Computer_3)
+- [https://en.wikipedia.org/wiki/Little_man_computer](https://en.wikipedia.org/wiki/Little_man_computer)
+- [https://www.jmeiners.com/lc3-vm/#:lc3.c_2](https://www.jmeiners.com/lc3-vm/#:lc3.c_2)
+- [https://www.youtube.com/watch?v=oArXOAhzOdY&list=PLUkZG7_4JtUL22HycWYR_J-1xJo7rQGhr](https://www.youtube.com/watch?v=oArXOAhzOdY&list=PLUkZG7_4JtUL22HycWYR_J-1xJo7rQGhr)
+- [https://www.andreinc.net/2021/12/01/writing-a-simple-vm-in-less-than-125-lines-of-c](https://www.andreinc.net/2021/12/01/writing-a-simple-vm-in-less-than-125-lines-of-c)
