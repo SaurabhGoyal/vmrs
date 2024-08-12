@@ -118,7 +118,7 @@ Step - [5, 13, 8, 0, 0, 0, 0, -1, 4, 1]
 Final - [5, 13, 8, 0, 0, 0, 0, -1, 5, 1]
 ```
 
-## Fibonacci series till nth number
+## Trap with getchar and halt
 ```
 RUST_BACKTRACE=1 cargo run -q < src/sample_programs/getc.o
 
@@ -137,6 +137,12 @@ Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
 - The instruction-set would be of Assembly language as it is smaller and easier to implement.
 
 ## How does it work internally?
+- High level -
+    - Machine needs to do take data, take instructions and do their calculations and produce results.
+    - Machine needs a way for taking and storing the data, instructions and results. This is where **memory** comes.
+    - Machine needs to perform calculations for instructions, that calculation happens in the logic gates implemented in the hardware of the machine and is encapsulated in the form of **registers**.
+    - Data need to be sent to registers from memory and register is instructed to perform the operation.
+    - For dealing with dynamic usecases such as IO devices, machine either uses dedicated registers (special purpose registers) or dedicated memory (memory mapped registers).
 - Machine has two components -
     - Registers - For control purpose. Each register can hold a 16 bit value. There are 10 registers in this implementation -
         - R0-R7 - value storage during instruction execution
@@ -145,6 +151,7 @@ Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
     - Memory - For data storage purpose only. This provides a larger storage area than registers and is used purely for storage of data that can not be fit into storage registers (R0-R7). Each memory slot can also hold a 16-bit value.
 - Machine loads the program code into memory at a certain address and sets `RPC` to that.
 - Machine keeps loading the instruction at the memory address referred by `RPC` and executing the business logic of that instruction. If the instruction is `OP_TRAP`, machine exits the program.
+- Machine also provides a virtual component called **"Memory Mapped Registers"** which is nothing but memory area which has is used for control purpose and not just data storage purpose. The main usecase is for handling IO from devices, since they can be dynamic, machine doesn't map registers to their signals and uses memory instead as memory is more dispensable than registers.
 
 ## Doubts
 - **Why to model registers as unsigned ints and then handle the negative numbers manually in VM logic instead of modelling them as signed ints only?**
@@ -161,7 +168,8 @@ Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
     - The reason is simply that in real world, machine may have more things that it needs to manage in the memory other than just the program code to be executed. One such thing is trap routine code which is nothing but some special instructions that machine itself has hardcoded to provide functionalities such as talking to IO devices and halt the program. 
 
 # References
+- https://en.wikipedia.org/wiki/Little_Computer_3
+- https://en.wikipedia.org/wiki/Little_man_computer
 - https://www.jmeiners.com/lc3-vm/#:lc3.c_2
 - https://www.youtube.com/watch?v=oArXOAhzOdY&list=PLUkZG7_4JtUL22HycWYR_J-1xJo7rQGhr
 - https://www.andreinc.net/2021/12/01/writing-a-simple-vm-in-less-than-125-lines-of-c
-

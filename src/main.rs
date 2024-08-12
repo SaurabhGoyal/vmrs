@@ -13,6 +13,8 @@ fn main() {
         let instr = line.split('#').collect::<Vec<&str>>()[0].replace(' ', "");
         program_code.push(u16::from_str_radix(instr.as_str(), 2).unwrap())
     }
-    vm.run(0, program_code.as_slice()).unwrap();
+    if !program_code.is_empty() {
+        vm.run(0, program_code.as_slice()).unwrap();
+    }
     println!("Final - {:?}", vm.dump().registers);
 }

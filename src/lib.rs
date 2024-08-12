@@ -134,7 +134,7 @@ impl Machine {
             OP_LOAD_REGISTER => self.load_register(instr)?,
             OP_JUMP => self.jump(instr)?,
             OP_JUMP_IF_SIGN => self.jump_if_sign(instr)?,
-            OP_DATA => self.write_data(instr)?,
+            OP_DATA => self.write_to_memory(instr)?,
             OP_TRAP => self.trap(instr)?,
             _ => {}
         }
@@ -167,16 +167,17 @@ impl Machine {
             },
             5,
         );
-        self.registers[dest_reg] = ((self.registers[source_reg_1] as i16) + (data as i16)) as u16;
-        self.update_stat(dest_reg)?;
+        self.write_to_register(
+            dest_reg,
+            ((self.registers[source_reg_1] as i16) + (data as i16)) as u16,
+        )?;
         self.registers[RPC] += 1;
         Ok(())
     }
 
     fn load(&mut self, instr: u16) -> anyhow::Result<()> {
         let reg = ((instr >> 9) & 7) as usize;
-        self.registers[reg] = get_sign_extended_value(instr & ((1 << 8) - 1), 8);
-        self.update_stat(reg)?;
+        self.write_to_register(reg, get_sign_extended_value(instr & ((1 << 8) - 1), 8))?;
         self.registers[RPC] += 1;
         Ok(())
     }
@@ -185,8 +186,7 @@ impl Machine {
         let reg = ((instr >> 9) & 7) as usize;
         let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
-        self.registers[reg] = self.memory.read(abs_addr as usize, 1)?[0];
-        self.update_stat(reg)?;
+        self.write_to_register(reg, self.memory.read(abs_addr as usize, 1)?[0])?;
         self.registers[RPC] += 1;
         Ok(())
     }
@@ -194,8 +194,7 @@ impl Machine {
     fn load_register(&mut self, instr: u16) -> anyhow::Result<()> {
         let dest_reg = ((instr >> 9) & 7) as usize;
         let source_reg = ((instr >> 6) & 7) as usize;
-        self.registers[dest_reg] = self.registers[source_reg];
-        self.update_stat(dest_reg)?;
+        self.write_to_register(dest_reg, self.registers[source_reg])?;
         self.registers[RPC] += 1;
         Ok(())
     }
@@ -211,7 +210,6 @@ impl Machine {
         let reg = ((instr >> 9) & 7) as usize;
         let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
         let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
-        self.update_stat(reg)?;
         if self.registers[RSTAT] == RSTAT_CONDITION_NEGATIVE {
             self.registers[RPC] = abs_addr;
         } else {
@@ -220,7 +218,7 @@ impl Machine {
         Ok(())
     }
 
-    fn write_data(&mut self, instr: u16) -> anyhow::Result<()> {
+    fn write_to_memory(&mut self, instr: u16) -> anyhow::Result<()> {
         let val = get_sign_extended_value(instr & LSB_MASK_12_BIT, 12);
         self.memory.write(self.registers[RPC] as usize, &[val])?;
         self.registers[RPC] += 1;
@@ -252,8 +250,8 @@ impl Machine {
         Ok(())
     }
 
-    fn update_stat(&mut self, dest_reg: usize) -> anyhow::Result<()> {
-        let val = self.registers[dest_reg];
+    fn write_to_register(&mut self, dest_reg: usize, val: u16) -> anyhow::Result<()> {
+        self.registers[dest_reg] = val;
         self.registers[RSTAT] = match val {
             0 => RSTAT_CONDITION_ZERO,
             _ => match val >> 15 {
