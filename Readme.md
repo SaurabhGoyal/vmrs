@@ -19,7 +19,7 @@ Implementation of 16-bit virtual machine (VM). **Please note that this implement
 - Machine needs a way for taking and storing the data, instructions and results. This is where **memory** comes.
 - Machine needs to perform calculations for instructions, that calculation happens in the logic gates implemented in the hardware of the machine and is encapsulated in the form of **registers**.
 - Data need to be sent to registers from memory and register is instructed to perform the operation.
-- Interrupts can be given only between instructions and not in between. In real hardware interrupts are enabled by having dedicated interrupt input pins for external systems which set the value as per the interrupt they want to trigger and the circuit of CPU is built in a way that in each instruction cycle, if the pin values are off, the normal instruction would be executed and if not, the circuit of interrupt handling branch will get enabled. In software, dedicated registers (special purpose registers) or dedicated memory (memory mapped registers) can be used to track the interrupt status.
+- [`Interrupts`](https://en.wikipedia.org/wiki/Interrupt) can be given only between instructions and not in between. In real hardware interrupts are enabled by having dedicated interrupt input pins for external systems which set the value as per the interrupt they want to trigger and the circuit of CPU is built in a way that in each instruction cycle, if the pin values are off, the normal instruction would be executed and if not, the circuit of interrupt handling branch will get enabled. In software, dedicated registers (special purpose registers) or dedicated memory (memory mapped registers) can be used to track the interrupt status.
 - In this VM however, we would make the yield control back after each instruction cycle so that pending interrupts can be read and processed.
 - An additional module, called, `Interrupt Controller` which can take input from user / external systems and pass on to CPU is added as well. A separate module is needed because we want the machine to not be impacted mid-instruction execution cycle if interrupts are generated and we don't want external modules to not be able to create interrupts if the CPU is busy.
 
@@ -50,6 +50,7 @@ Three components to enable above -
 
 ### Interrupt Controller
 - Interrupt Controller has a single component **Pending Interrupt Queue** where any incoming and non-handled interrupts are stored.
+- We will model each interrupt as a single 8 bit data item with following format - `Device-id (4 bits) | Interrupt-id (4 bits)`. Interrupts themselves are simple signal mechanisms of an event happening and do not carry with them the data of the event. The data of the event should be put into an area commonly accessible by the external system as well as CPU. Such area can be CPU memory and special registers (such as Memory mapped registers) or dedicated managed-memory (separate from CPU, accessible via MMU - Memory Management Unit). In the former case, external system can use vm's `load` API and then use interrupt-controller's `int` API.
 - It exposes two APIs -
     - `Int(interrupt)` - Adds an interrupt to the pending queue. It may discard them as well depending on if they are duplicate or too soon or any other factor. This will be called by the external systems. 
     - `IntA(interrupt)` - Acknowledges an interrupt handling to be complete and removes it from pending interrupts queue. This will be called based on interrupt handling response from CPU. 
@@ -219,6 +220,9 @@ Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 0]
 Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
 Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
 ```
+
+### Example with interrupts -
+![vm_ic.png](vm_ic.png)
 
 
 # References

@@ -6,19 +6,24 @@ use std::{
 };
 use tracing::{event, instrument, Level};
 
-use vmrs::Machine;
+use vmrs::{Dump as _, InterruptController, Machine};
 
 fn main() {
     tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new()).unwrap();
     let (vm_tx, vm_rx) = channel::<Vec<String>>();
-    let machine_handler = thread::spawn(move || vm_runner(vm_rx));
-    let shell_handler = thread::spawn(move || shell_runner(vm_tx));
+    let (ic_tx, ic_rx) = channel::<Vec<String>>();
+    let vm_tx_clone = vm_tx.clone();
+    let ic_tx_clone = ic_tx.clone();
+    let machine_handler = thread::spawn(move || vm_runner(vm_rx, ic_tx_clone));
+    let ic_handler = thread::spawn(move || ic_runner(ic_rx, vm_tx_clone));
+    let shell_handler = thread::spawn(move || shell_runner(vm_tx, ic_tx));
     machine_handler.join().unwrap();
+    ic_handler.join().unwrap();
     shell_handler.join().unwrap();
 }
 
-#[instrument]
-fn vm_runner(cmd_recvr: Receiver<Vec<String>>) {
+#[instrument(skip_all)]
+fn vm_runner(cmd_recvr: Receiver<Vec<String>>, ic_sender: Sender<Vec<String>>) {
     let mut vm = Machine::default();
     while let Ok(cmd_parts) = cmd_recvr.recv() {
         if cmd_parts[0] == "load" {
@@ -30,14 +35,23 @@ fn vm_runner(cmd_recvr: Receiver<Vec<String>>) {
                 data.push(u16::from_str_radix(data_item.as_str(), 2).unwrap());
             }
             vm.load(addr, data.as_slice()).unwrap();
-            event!(Level::INFO, "Load - {:?}", vm.dump());
+            event!(Level::INFO, command = "load", "{:?}", vm.dump());
         } else if cmd_parts[0] == "set_pc" {
             let addr = cmd_parts[1].parse::<u16>().unwrap();
             vm.set_pc(addr).unwrap();
-            event!(Level::INFO, "Set_PC - {:?}", vm.dump());
-        } else if cmd_parts[0] == "next" {
+            event!(Level::INFO, command = "set_pc", "{:?}", vm.dump());
+        } else if cmd_parts[0] == "cycle" {
             vm.cycle().unwrap();
-            event!(Level::INFO, "Cycle - {:?}", vm.dump());
+            event!(Level::INFO, command = "cycle", "{:?}", vm.dump().registers);
+        } else if cmd_parts[0] == "int" {
+            let dev_id = cmd_parts[1].parse::<u8>().unwrap();
+            let int_id = cmd_parts[2].parse::<u8>().unwrap();
+            vm.handle_interrupt(dev_id, int_id).unwrap();
+            event!(Level::WARN, "Interrupt handing not implemented yet !!!");
+            ic_sender
+                .send(vec!["int_ack".to_string(), int_id.to_string()])
+                .unwrap();
+            // TODO
         } else {
             event!(Level::ERROR, "Invalid cmd!");
             break;
@@ -45,8 +59,29 @@ fn vm_runner(cmd_recvr: Receiver<Vec<String>>) {
     }
 }
 
-#[instrument]
-fn shell_runner(vm_tx: Sender<Vec<String>>) {
+#[instrument(skip_all)]
+fn ic_runner(cmd_recvr: Receiver<Vec<String>>, vm_sender: Sender<Vec<String>>) {
+    let mut ic = InterruptController::default();
+    while let Ok(cmd_parts) = cmd_recvr.recv() {
+        if cmd_parts[0] == "int" {
+            let dev_id = cmd_parts[1].parse::<u8>().unwrap();
+            let int_id = cmd_parts[2].parse::<u8>().unwrap();
+            ic.int(dev_id, int_id).unwrap();
+            event!(Level::INFO, command = "int", "{:?}", ic);
+            vm_sender.send(cmd_parts.clone()).unwrap();
+        } else if cmd_parts[0] == "int_ack" {
+            let int_id = cmd_parts[1].parse::<u8>().unwrap();
+            ic.int_ack(int_id).unwrap();
+            event!(Level::INFO, command = "int_ack", "{:?}", ic);
+        } else {
+            event!(Level::ERROR, "Invalid cmd!");
+            break;
+        }
+    }
+}
+
+#[instrument(skip_all)]
+fn shell_runner(vm_tx: Sender<Vec<String>>, ic_tx: Sender<Vec<String>>) {
     for cmd in stdin().lines() {
         let Ok(cmd) = cmd else { break };
         if cmd.is_empty() {
@@ -59,6 +94,8 @@ fn shell_runner(vm_tx: Sender<Vec<String>>) {
         let cmd_target = cmd_parts.remove(0);
         if cmd_target == "vm" {
             vm_tx.send(cmd_parts).unwrap();
+        } else if cmd_target == "ic" {
+            ic_tx.send(cmd_parts).unwrap();
         } else {
             event!(Level::INFO, "Invalid command!");
         }
