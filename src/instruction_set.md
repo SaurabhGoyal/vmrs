@@ -35,9 +35,9 @@
 - Syntax - `0100 (4 bits) | 000 (3 bits) | Relative-Memory-Address (9 bits)`
 
 ## JumpIfSign (OpCode - 0101)
-- Sets program counter to the memory address given in the instruction if the register given in instruction has negative value.
+- Sets program counter to the memory address given in the instruction if the last calculated value in RSTAT register has negative value.
 - Enables non-liner execution of program.
-- Syntax - `0101 (4 bits) | Dest Register (3 bits) | Relative-Memory-Address (9 bits)`
+- Syntax - `0101 (4 bits) | 000 (3 bits) | Relative-Memory-Address (9 bits)`
 
 ## Trap (OpCode - 1111)
 - Sets a trap to the instruction execution for machine to do things outside the instruction in the program code.

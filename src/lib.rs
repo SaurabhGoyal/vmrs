@@ -6,13 +6,13 @@ const MEMORY_SLOT_COUNT: usize = 1 << 4;
 // assign any numeric schemantic to them. For machine, they are 16-bit data storage which may store
 // anything in it.
 const R0: usize = 0;
-const R1: usize = 1;
-const R2: usize = 2;
-const R3: usize = 3;
-const R4: usize = 4;
-const R5: usize = 5;
-const R6: usize = 6;
-const R7: usize = 7;
+const _R1: usize = 1;
+const _R2: usize = 2;
+const _R3: usize = 3;
+const _R4: usize = 4;
+const _R5: usize = 5;
+const _R6: usize = 6;
+const _R7: usize = 7;
 // `RPC` is a dedicated register to store which next instruction is to be executed. This enables non-linear
 // execution of code which is powered by `go-to / jump` statement enabling connstructs such as `if-else` and `loop`.
 const RPC: usize = 8;
@@ -50,7 +50,6 @@ const TRAP_CODE_GETC: u16 = 1;
 
 const REG_COUNT: usize = 10;
 const MAX_LOOP_ITERS: u16 = 30;
-const LSB_MASK_12_BIT: u16 = 4095; // 0000111111111111
 
 trait Addressable {
     fn read(&self, addr: usize, slot_count: usize) -> anyhow::Result<&[u16]>;
@@ -112,9 +111,9 @@ impl Machine {
         self.registers[RPC] = addr;
         let mut ic = 0;
         loop {
-            // Execute step
-            self.step()?;
-            println!("Step - {:?}", self.dump().registers);
+            // Run instruction cycle
+            self.cycle()?;
+            println!("Cycle - {:?}", self.dump().registers);
             ic += 1;
             // Check if need to halt
             if self.registers[RSTAT] == RSTAT_CONDITION_HALT || ic == MAX_LOOP_ITERS {
@@ -125,7 +124,7 @@ impl Machine {
     }
 
     // Instruction format [OP_CODE(4 bits), Parameters (12 bits)];
-    fn step(&mut self) -> anyhow::Result<()> {
+    fn cycle(&mut self) -> anyhow::Result<()> {
         let pc = self.registers[RPC];
         let instr = self.memory.read(pc as usize, 1)?[0];
         let op_code = instr >> 12;
@@ -209,10 +208,9 @@ impl Machine {
     }
 
     fn instr_jump_if_sign(&mut self, instr: u16) -> anyhow::Result<()> {
-        let reg = ((instr >> 9) & 7) as usize;
-        let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
-        let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
         if self.registers[RSTAT] == RSTAT_CONDITION_NEGATIVE {
+            let relative_addr = get_sign_extended_value(instr & ((1 << 9) - 1), 9) as i16;
+            let abs_addr = (self.registers[RPC] as i16 + relative_addr) as u16;
             self.registers[RPC] = abs_addr;
         } else {
             self.registers[RPC] += 1;
