@@ -107,24 +107,13 @@ impl Machine {
         self.memory.write(addr as usize, data)?;
         Ok(())
     }
-    pub fn run(&mut self, addr: u16) -> anyhow::Result<()> {
+    pub fn set_pc(&mut self, addr: u16) -> anyhow::Result<()> {
         self.registers[RPC] = addr;
-        let mut ic = 0;
-        loop {
-            // Run instruction cycle
-            self.cycle()?;
-            println!("Cycle - {:?}", self.dump().registers);
-            ic += 1;
-            // Check if need to halt
-            if self.registers[RSTAT] == RSTAT_CONDITION_HALT || ic == MAX_LOOP_ITERS {
-                break;
-            }
-        }
         Ok(())
     }
 
     // Instruction format [OP_CODE(4 bits), Parameters (12 bits)];
-    fn cycle(&mut self) -> anyhow::Result<()> {
+    pub fn cycle(&mut self) -> anyhow::Result<()> {
         let pc = self.registers[RPC];
         let instr = self.memory.read(pc as usize, 1)?[0];
         let op_code = instr >> 12;

@@ -40,7 +40,7 @@ Three components to enable above -
     - **Memory -** For data storage purpose only. This provides a larger storage area than registers and is used purely for storage of data that can not be fit into storage registers (R0-R7). Each memory slot can also hold a 16-bit value.
         - Machine also provides a virtual component called **"Memory Mapped Registers"** which is nothing but memory area which will be used for control purpose of dynamic usecases such as handling IO from devices. Dedicated registers are not used for this because memory is more dispensable than registers.
 - Machine exposes three APIs -
-    - `Load()` - any arbitrary data in the memory. Programmer should use it to load data and program code into memory at desired addresses. (This is programmer's responsibility that the addresses of the data in the program code point correctly to the loaded data in memory.)
+    - `Load()` - any arbitrary data in the memory. Programmer should use it to vm load data and program code into memory at desired addresses. (This is programmer's responsibility that the addresses of the data in the program code point correctly to the loaded data in memory.)
     - `Run()` - run the program code stored at given address. Machine sets `RPC` to that address and performs exactly one instruction cycle.
     - `HandleInterrupt(interrupt)` - runs the handler code corresponding to the given interrupt. This will be called manually by interrupt controller if needed. The handling happens in below steps -
         - For each interrupt id that needs to be handled, the logic (instructions) to handle it should be loaded into the memory using `load` API.
@@ -65,7 +65,7 @@ Three components to enable above -
     - This register has been named as `RCOND` in the referring blog post and is also called as `Condition Code Register` or simply `Condition Register` sometimes.
 - ~~**We are using a dedicated op-code for not treating an instruction as operation, for storing raw data in memory. This wastes 4 bits, is there any workaround?**~~
     - Using the two step (load, run) process now instead of the single step (run-with-load), resolving this issue.
-- **Why is an address needed to load the program code? While I haven't used any custom address, i.e. loaded the program code simply at 0th address, the blog post suggest to use 0x3000, why?**
+- **Why is an address needed to vm load the program code? While I haven't used any custom address, i.e. loaded the program code simply at 0th address, the blog post suggest to use 0x3000, why?**
     - The reason is simply that in real world, machine may have more things that it needs to manage in the memory other than just the program code to be executed. One such thing is trap routine code which is nothing but some special instructions that machine itself has hardcoded to provide functionalities such as talking to IO devices and halt the program. 
 
 
@@ -73,9 +73,9 @@ Three components to enable above -
 `RUST_BACKTRACE=1 cargo run -q` 
 ### Add positive numbers
 ```
-load src/sample_programs/adder_pos_nums.o 0
-run 0
-Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5800, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+vm load src/sample_programs/adder_pos_nums.o 0
+vm run 0
+vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5800, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
 Step - [3, 0, 0, 0, 0, 0, 0, 0, 1, 1]
 Step - [3, 6, 0, 0, 0, 0, 0, 0, 2, 1]
 Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
@@ -86,9 +86,9 @@ Final - Dump { registers: [3, 6, 9, 17, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 
 
 ### Add negative numbers with total sum as positive
 ```
-load src/sample_programs/adder_neg_nums_pos_result.o 0
-run 0
-Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+vm load src/sample_programs/adder_neg_nums_pos_result.o 0
+vm run 0
+vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
 Step - [3, 0, 0, 0, 0, 0, 0, 0, 1, 1]
 Step - [3, 6, 0, 0, 0, 0, 0, 0, 2, 1]
 Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
@@ -99,18 +99,18 @@ Final - Dump { registers: [3, 6, 9, 2, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5
 
 ### Add negative numbers with total sum as negative
 ```
-load src/sample_programs/adder_neg_nums_neg_result.o 0
-run 0
+vm load src/sample_programs/adder_neg_nums_neg_result.o 0
+vm run 0
 Final - Dump { registers: [3, 6, 9, 2, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
 ```
 
-### Add negative numbers with total sum as negative using load indirect op
+### Add negative numbers with total sum as negative using vm load indirect op
 ```
-load src/sample_programs/data_load_negative_num.o 0
-load src/sample_programs/adder_neg_nums_neg_result_indirect_load.o 1
-run 1
-Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-Load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 8194, 13310, 5121, 5818, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+vm load src/sample_programs/data_load_negative_num.o 0
+vm load src/sample_programs/adder_neg_nums_neg_result_indirect_load.o 1
+vm run 1
+vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 8194, 13310, 5121, 5818, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
 Step - [2, 0, 0, 0, 0, 0, 0, 0, 2, 1]
 Step - [2, -5, 0, 0, 0, 0, 0, 0, 3, 2]
 Step - [2, -5, -3, 0, 0, 0, 0, 0, 4, 2]
@@ -118,10 +118,10 @@ Step - [2, -5, -3, -9, 0, 0, 0, 0, 5, 2]
 Step - [2, -5, -3, -9, 0, 0, 0, 0, 5, 3]
 Final - Dump { registers: [2, -5, -3, -9, 0, 0, 0, 0, 5, 3], memory: [-5, 8194, 13310, 5121, 5818, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
 ```
-### Infinite loop (With forced cutoff in run function after 30 iterations)
+### Infinite loop (With forced cutoff in vm run function after 30 iterations)
 ```
-load src/sample_programs/loop_infinite.o 0
-run 0
+vm load src/sample_programs/loop_infinite.o 0
+vm run 0
 
 Step - [3, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Step - [3, 6, 0, 0, 0, 0, 0, 0, 1, 1]
@@ -157,8 +157,8 @@ Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
 
 ### Finite loop
 ```
-load src/sample_programs/loop_finite.o 0
-run 0
+vm load src/sample_programs/loop_finite.o 0
+vm run 0
 
 Step - [2, 0, 0, 0, 0, 0, 0, 0, 0, 1]
 Step - [2, -5, 0, 0, 0, 0, 0, 0, 1, 2]
@@ -174,8 +174,8 @@ Step - [2, -5, 0, 1, 0, 0, 0, 0, 5, 0]
 
 ### Fibonacci series till nth number
 ```
-load src/sample_programs/fib.o 0
-run 0
+vm load src/sample_programs/fib.o 0
+vm run 0
 
 Step - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 Step - [0, 1, 0, 0, 0, 0, 0, 0, 1, 1]
@@ -212,8 +212,8 @@ Final - [5, 13, 8, 0, 0, 0, 0, -1, 5, 1]
 
 ### Trap with getchar and halt
 ```
-load src/sample_programs/getc.o 0
-run 0
+vm load src/sample_programs/getc.o 0
+vm run 0
 
 Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 0]
 Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
