@@ -113,7 +113,7 @@ impl Machine {
     }
 
     // Instruction format [OP_CODE(4 bits), Parameters (12 bits)];
-    pub fn cycle(&mut self) -> anyhow::Result<()> {
+    pub fn execute_instruction(&mut self) -> anyhow::Result<()> {
         if matches!(self.registers[RSTAT], RSTAT_CONDITION_HALT) {
             return Ok(());
         }

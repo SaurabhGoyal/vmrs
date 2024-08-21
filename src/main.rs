@@ -40,9 +40,9 @@ fn vm_runner(cmd_recvr: Receiver<Vec<String>>, ic_sender: Sender<Vec<String>>) {
             let addr = cmd_parts[1].parse::<u16>().unwrap();
             vm.set_pc(addr).unwrap();
             event!(Level::INFO, command = "set_pc", "{:?}", vm.dump());
-        } else if cmd_parts[0] == "cycle" {
-            vm.cycle().unwrap();
-            event!(Level::INFO, command = "cycle", "{:?}", vm.dump().registers);
+        } else if cmd_parts[0] == "exec" {
+            vm.execute_instruction().unwrap();
+            event!(Level::INFO, command = "exec", "{:?}", vm.dump().registers);
         } else if cmd_parts[0] == "int" {
             let dev_id = cmd_parts[1].parse::<u8>().unwrap();
             let int_id = cmd_parts[2].parse::<u8>().unwrap();
