@@ -21,9 +21,9 @@ Implementation of 16-bit virtual machine (VM). **Please note that this implement
 - To take and store the data, instructions and results, a storage layer is needed, this is enabled by **`Memory`** which mainly provides `read` and `write` functionalities.
 - To perform calculations, real hardware uses the logic gates implemented in the electronic circuit and these gates are encapsulated behind a component called **`Registers`**. In our vm -
     - We would have registers as a storage array and the logic of instructions would be implemented by us manually in the runtime environment (i.e. Rust) itself.
-    - Data will flow between registers and memory as per need of the insdtruction.
+    - Data will flow between registers and memory as per need of the instruction.
 - For listening to external events, a concept called [**`Interrupts`**](https://en.wikipedia.org/wiki/Interrupt) is implemented.
-    - In real hardware, interrupts are enabled by having dedicated interrupt input pins (elective signal receivers).
+    - In real hardware, interrupts are enabled by having dedicated interrupt input pins (electric signal receivers).
     - External systems can set the value in these pins as per the interrupt they want to trigger.
     - The circuit of CPU is built in a way that in each instruction cycle, if the pin values are off, the normal instruction would be executed and if not, the circuit of interrupt handling branch will get enabled.
     - Interrupts can be software triggered as well in which case dedicated registers (special purpose registers) or dedicated memory (memory mapped registers) can be used to track the interrupt status.
@@ -37,11 +37,11 @@ Implementation of 16-bit virtual machine (VM). **Please note that this implement
     - **Registers -** For control purpose. Each register can hold a 16 bit value. There are 10 registers in this implementation -
         - `R0-R7` - value storage during instruction execution
         - `RPC` - program counter, i.e. memory address of the instruction to be executed next
-        - `RSTAT` - status storage of machine based on various situations such as result sign og previous instructions, blocked on IO, halted etc.
+        - `RSTAT` - status storage of machine based on various situations such as result sign of previous instructions, blocked on IO, halted etc.
     - **Memory -** For data storage purpose only. This provides a larger storage area than registers and is used purely for storage of data. Each memory slot can hold a 16-bit value. (Read further about [Memory-Segmentation section](#memory-access-control-via-segmentation) to understand about segment-id and its use in memory-slots.)
     - **Interrupt Table Address -** Stores the address of the table that will hold map of interrupt handler logic for interrupt handling purpose. Read upto [Interrupt-Handling section](#interrupt-handling) for full details.
-- Machine exposes three APIs -
-    - `Load()` - Takes and stores any data in the memory. Programmer should use it to vm load data and program code into memory at desired addresses. (This is programmer's responsibility that the addresses of the data in the program code point correctly to the loaded data in memory.)
+- Machine exposes following APIs -
+    - `Load()` - Takes and stores any data in the memory. Programmer should use it to load data and program code into memory at desired addresses. (This is programmer's responsibility that the addresses of the data in the program code point correctly to the loaded data in memory.)
     - `SetPC(addr)` - Sets the program counter (`RPC`) of machine to given address. Further execution will continue from this address.
     - `Exec()` - Executes one cycle of the programm using the instruction stored at `RPC`.
     - `HandleInterrupt(interrupt)` - runs the handler code corresponding to the given interrupt. This will be called manually by interrupt controller if needed. (Read upto [Interrupt-Handling section](#interrupt-handling) for full details.)
@@ -126,7 +126,7 @@ To enable this, machine uses the value in `RSTAT` register which marks whether e
     - Machine sets `RSTAT` as `RSTAT_WAITING_FOR_INPUT` as per this instruction and **DOES NOT** increase the program counter because we want to wait for this to complete.
     - In further execution cycles, machine does not perform any instruction because of `RSTAT` value. Another such value which stops machine to perform anything is `RSTAT_HALT`.
     - In the interrupt handler code of machine, machine should check whether it wants to handle the `INTERRUPT_GET_C` based on value of `RSTAT`.
-    - If yes, current program-counter is stored temporarily, `RSTAT` is reset to `RSTA_CONDITION_ZERO` and interrupt handler logic from memory is executed. Post execution, program-counter is increased by 1 from the persisted program-counter so that execution continues back from the user-program.
+    - If yes, current program-counter is stored temporarily, `RSTAT` is reset to `RSTAT_CONDITION_ZERO` and interrupt handler logic from memory is executed. Post execution, program-counter is increased by 1 from the persisted program-counter so that execution continues back from the user-program.
 
 ### Flow Diagram
 ![interrupt-handling.png](interrupt-handling.png)
@@ -135,7 +135,7 @@ To enable this, machine uses the value in `RSTAT` register which marks whether e
 
 
 # Example Run
-In this example, we are taking a number as input from user and adding doubling it by adding it to itself. The logic would go like this -
+In this example, we are taking a number as input from user and doubling it by adding it to itself. The logic would go like this -
 - Load the needed static data into machine memory -
     - We need memory slots for external devices to write to. We assign addresses 0-7 for that.
     - We need memory slots for interrupt-address-table. Table currently has only one key value entry, interrupt_id 1 has handler logic at 10. We assign addresses 8-9 for that.
