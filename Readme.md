@@ -80,160 +80,98 @@ Three components to enable above -
 - **Why is an address needed to vm load the program code? While I haven't used any custom address, i.e. loaded the program code simply at 0th address, the blog post suggest to use 0x3000, why?**
     - The reason is simply that in real world, machine may have more things that it needs to manage in the memory other than just the program code to be executed. One such thing is trap routine code which is nothing but some special instructions that machine itself has hardcoded to provide functionalities such as talking to IO devices and halt the program. 
 
+# In-Depth
+## Memory Access Control via Segmentation
+While the machine treats memory as something where anything can be loaded and executed, we do need some additional semantics for the correct working of the machine. In bare minimum vm, we have atleast three types of information that a memory slot can store -
+- Program data - static data that a program will use such as numbers and strings. 
+- Program code - the instruction that a program is made of. 
+- Generated data - the data generated during the program execution and at the end of it. Ex.- temporary values during execution and permanent values as result.
 
-# Run
+**We don't want a program to be able to overwrite its own instructions during execution or overwrite the program-data as it would cause errors when accessing that memory slot.** So we need to put some kind of access control around slots. A simple technique for the same is **`memory segmentation`** where each memory slot has data as well as a segment_id to represent the category of the data it holds. Using this `segment_id`, following logic can be applied for access control -
+- A write on a slot can succeed only if the slot's current segment is either uninitialised or is same as the segment of the data being written.
+- A write on a slot can be restricted to certain segment_types depending on who is calling.
+- A read on a slot would return segment of data as well so the caller can use that to assert that they are treating the data with the same expectation that it was written with.
+
+In total we have following segment types -
+- **Uninitialised (0)** - Memory slot is still up for grab. 
+- **Interrupt-Data (1)** - Memory slot is reserved for storing data uploaded by external systes to augment interrupt signals. 
+- **Interrupt-Handler-Table (2)** - Memory slot is reserved for storing the mapping between interrupt-code and the absolute memory address of its handler logic. 
+- **Interrupt-Program-Code (3)** - Memory slot is reserved for storing the instructions for handler logic. 
+- **Program-Data (4)** - Memory slot is reserved for storing the hard-coded data loaded by programmer. 
+- **Program-Code (5)** - Memory slot is reserved for storing the instructions loaded by programmer. 
+- **Dynamic-Data (6)** - Memory slot is reserved for storing the data dynamically generated during execution of instructions. 
+
+Out of all above, all segment types other than Dynamic-Data are `privileged segments` and can be written only via `Load API`. This is essentially a reflection of what we call `kernel mode`.
+
+Read the [Interrupt Handling](#interrupt-handling) section for more details on need of all these segments.
+
+## Interrupt Handling
+We saw in the [interrupt handling flow](#running-the-program-and-handling-interrupts) how an interrupt is triggered by an external device and how CPU handler handles it and sends an ACK back. There are two details that are missing there though -
+1. How does machine know how to handle a certain interrupt? 
+2. How does the external device shares the data related to the interrupt with the machine? For ex.- the input character in case of a keyboard char-input interrupt.
+3. How does machine know when to stop and when to continue?
+
+To enable the first two, machine provides three type of memory segments as we saw in  [Memory Segmentation section](#memory-access-control-via-segmentation).
+- **Interrupt-Program-Code (3)** - The handler logic of each interrupt_id can be stored in memory slots with this segment-id. 
+- **Interrupt-Handler-Table (2)** - The mapping of interrupt_id to the absolute memory address of the handler logic of interrupt_ids can be stored in memory slots with this segment-id. 
+- **Interrupt-Data (1)** - Any data needed for the interrupt can be stored in memory slots with this segment-id. This will be loaded by external systems.
+
+To enable the 3rd point, a key point to note is that different interrupts would have different handling. For example - machine may not be interested in timer interrupt at all, machine may not be interested in a user-input interrupt as well unless the program demands that.
+- So a key point to note here would be that `machine depending on whether it is interested in the interrupt or not, can handle or discard them`. 
+- How would machine know whether it is interested? This can be done by use of specific values in `RSTAT` register which would be set by specific `TRAP` instructions. Ex.-
+    - If a program needs user input, it adds an instruction in the program `TRAP_GETC`.
+    - Machine sets `RSTAT` as `RSTAT_WAITING_FOR_INPUT` as per this instruction and **DOES NOT** increase the program counter because we want to wait for this to complete.
+    - In further execution cycles, machine does not perform any instruction because of RSTAT value. Another such value which stops machine to perform anything is `RSTAT_HALT`.
+    - In the interrupt handler code of machine, machine should check whether it wants to handle the `INTERRUPT_GET_C` based on value of `RSTAT`.
+    - If yes, current program-counter is stores temporarily, `RSTAT` is reset to `RSTA_CONDITION_ZERO` and interrupt handler logic from memory is executed. Post execution, program-counter is increased by 1 from the persisted program-counter so that execution continues in the user-program.
+
+![interrupt-handling.png](interrupt-handling.png)
+
+[(source)](https://sequencediagram.org/index.html#initialData=C4S2BsFMAIDUQE7AK4ENzQLKoMYAsQA7GAUQA9IdlQB7Q6AZVQFsAHKAKA92BoWgBEABQQ0A5ghbNICAdFQBnaKw6tUSEDhBrCwCTWStoAKmPlgMwukYBPBReYLV60Fp3BBDEM2ThUvfgY8SHBwOUVoSAUlAGJwEDE8PUkbDkhCABNnDTdUXX1DE2MAYRo2ahls1208jwFsfCJIcKUAN2ZoOISkiUh0qs0a3UEASV0ZBENgUt1RUJkW6E1O+MTgACNwZEg0zK5CGgtoGlaZaHaV7uAbEPAaAHcALmgRcUkO+9qlXmhPsGgAGZ8aDIBRnIisahcHggVr+GDtDjtAC0yIAfO1nq8JCxkWN7JMcLRCAAdQgAAwAKgAlACCQmgAHESJTiuSkcxURjmM9qQxKbTKdAALzQADqtJGlJGADlGQB9ABiAHlqfLZUIAKqUjgZSAwuFHREcA5HE5nKKxVZJG6hB7PTVg-gQ6hLcYISasDwgb4IBJiGSQLLcImw+HKVTozHQO6oDLQfDqHgyeUu4AAOho0AAjNAAAxkgAUcK2MAA7G6cwA2aDrMAASg5XOj9z9RwrPzjGQQlvzvzAeDdwHlGX8qGghez9egYLE0l0yJAWVYAB5UdHcABrSNoy2PUzLIgeADMOdMaWi6M0jyP0FP2YvCjXi5wjy3qmfe-feoN4ZUHAKVgujWVgiE3aARmKaAABkaBoIwAB8E2YeNhVFAQjwEDhNC5a9qUoPh4yPCYpjvbCcCjHlb3vcjn0xd90mDU0YHNfgLmAm1bntaBHXBQhIW9d1PW9JQ8DyDIoCI+hmFwAhiC4QCOI2UtoHIShqBAOgYLgxDkNQ9DMKbSjHj5AUhXwShtxRYyezjIcSK9eQMm7XtgFQTYYH8HN+2AQdZ3nYcl3kJQj3lNyPInAAmRtrO5R5bKkiwPVIu4xGWIF+ADYAcHkDxszzHy-MgOd0kC+MIlCnAaD1CdjxizljNMwURWgAAtEhqWVIy4upIQoNFMTMigBB5S7Htog4O54JBXQQFCaAmspYUAAlaWgnVYsxSAKCoCxU0IAlkFDOgi2zewliS6BkRjGg7OkTkCp+ak83rItIsyC6zmusTwGARtGO6zFev65Qe1aeUEFYHKAGocybNFr1CrdCwAFnq59rwYvYgA)
+
+
+# Example Run
+In this example, we are taking a number as input from user and adding doubling it by adding it to itself. The logic would go like this -
+- Load the needed static data into machine memory -
+    - We need memory slots for external devices to write to. We assign addresses 0-7 for that.
+    - We need memory slots for interrupt-address-table. Table currently has only one key value entry, interrupt_id 1 has handler logic at 10. We assign addresses 8-9 for that.
+
+        ```vm load src/sample_programs/int_handler_address_table.o 2 8```
+    - We need memory slots for interrupt-handler-logic for getc (`src/sample_programs/int_handler_getc.o`). The logic has only two instructions - load from 0 to R0 and halt. We assign addresses 10-11 for that.
+
+        ```vm load src/sample_programs/int_handler_getc.o 3 10```
+    - We need memory slots for program-code for getc demo program (`src/sample_programs/getc.o`). The logic has three instructions - Trap Getc, add R0 to R0 and halt. We assign addresses 12-14 for that.
+
+        ```vm load src/sample_programs/getc.o 4 12```
+- Once loaded, we set the program counter to the address of the program.
+
+    ```vm set_pc 12```
+- To start execution of demo program. We use `vm exec`. The program will execute first instruction (`TRAP_GETC`) and halt because of waiting for input.
+- To trigger user input interrupt -
+    - We load value 7 into the int_data segment memory.
+
+        ```vm load src/sample_programs/character_input.o 1 0```
+    - We trigger the getc interrupt (1) from device_id 3.
+
+        ```ic int 3 1```
+
 `RUST_BACKTRACE=1 cargo run -q` 
-### Add positive numbers
 ```
-vm load src/sample_programs/adder_pos_nums.o 0
-vm run 0
-vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5800, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-Step - [3, 0, 0, 0, 0, 0, 0, 0, 1, 1]
-Step - [3, 6, 0, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 17, 0, 0, 0, 0, 4, 1]
-Step - [3, 6, 9, 17, 0, 0, 0, 0, 4, 3]
-Final - Dump { registers: [3, 6, 9, 17, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5121, 5800, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-```
-
-### Add negative numbers with total sum as positive
-```
-vm load src/sample_programs/adder_neg_nums_pos_result.o 0
-vm run 0
-vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-Step - [3, 0, 0, 0, 0, 0, 0, 0, 1, 1]
-Step - [3, 6, 0, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 2, 0, 0, 0, 0, 4, 1]
-Step - [3, 6, 9, 2, 0, 0, 0, 0, 4, 3]
-Final - Dump { registers: [3, 6, 9, 2, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+vm load src/sample_programs/int_handler_address_table.o 2 8
+vm load src/sample_programs/int_handler_getc.o 3 10
+vm load src/sample_programs/getc.o 4 12
+vm set_pc 12
+vm exec
+vm exec
+vm exec
+vm load src/sample_programs/character_input.o 1 0
+ic int 3 1
+vm exec
+vm exec
 ```
 
-### Add negative numbers with total sum as negative
-```
-vm load src/sample_programs/adder_neg_nums_neg_result.o 0
-vm run 0
-Final - Dump { registers: [3, 6, 9, 2, 0, 0, 0, 0, 4, 3], memory: [8195, 8710, 5121, 5817, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-```
 
-### Add negative numbers with total sum as negative using vm load indirect op
-```
-vm load src/sample_programs/data_load_negative_num.o 0
-vm load src/sample_programs/adder_neg_nums_neg_result_indirect_load.o 1
-vm run 1
-vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-vm load - Dump { registers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], memory: [-5, 8194, 13310, 5121, 5818, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-Step - [2, 0, 0, 0, 0, 0, 0, 0, 2, 1]
-Step - [2, -5, 0, 0, 0, 0, 0, 0, 3, 2]
-Step - [2, -5, -3, 0, 0, 0, 0, 0, 4, 2]
-Step - [2, -5, -3, -9, 0, 0, 0, 0, 5, 2]
-Step - [2, -5, -3, -9, 0, 0, 0, 0, 5, 3]
-Final - Dump { registers: [2, -5, -3, -9, 0, 0, 0, 0, 5, 3], memory: [-5, 8194, 13310, 5121, 5818, -4096, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-```
-### Infinite loop (With forced cutoff in vm run function after 30 iterations)
-```
-vm load src/sample_programs/loop_infinite.o 0
-vm run 0
-
-Step - [3, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-Step - [3, 6, 0, 0, 0, 0, 0, 0, 1, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 2, 1]
-Step - [3, 6, 9, 0, 0, 0, 0, 0, 3, 1]
-```
-
-### Finite loop
-```
-vm load src/sample_programs/loop_finite.o 0
-vm run 0
-
-Step - [2, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-Step - [2, -5, 0, 0, 0, 0, 0, 0, 1, 2]
-Step - [2, -5, -3, 0, 0, 0, 0, 0, 2, 2]
-Step - [2, -5, -3, 1, 0, 0, 0, 0, 3, 1]
-Step - [2, -5, -2, 1, 0, 0, 0, 0, 4, 2]
-Step - [2, -5, -2, 1, 0, 0, 0, 0, 5, 2]
-Step - [2, -5, -1, 1, 0, 0, 0, 0, 4, 2]
-Step - [2, -5, -1, 1, 0, 0, 0, 0, 5, 2]
-Step - [2, -5, 0, 1, 0, 0, 0, 0, 4, 0]
-Step - [2, -5, 0, 1, 0, 0, 0, 0, 5, 0]
-```
-
-### Fibonacci series till nth number
-```
-vm load src/sample_programs/fib.o 0
-vm run 0
-
-Step - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-Step - [0, 1, 0, 0, 0, 0, 0, 0, 1, 1]
-Step - [0, 1, 0, 0, 0, 0, 0, 3, 2, 1]
-Step - [0, 1, 1, 0, 0, 0, 0, 3, 3, 1]
-Step - [0, 1, 1, 0, 0, 0, 0, 3, 4, 1]
-Step - [1, 1, 1, 0, 0, 0, 0, 3, 5, 1]
-Step - [1, 1, 1, 0, 0, 0, 0, -1, 6, 2]
-Step - [1, 1, 1, 0, 0, 0, 0, -1, 7, 2]
-Step - [1, 1, 1, 0, 0, 0, 0, -1, 3, 1]
-Step - [1, 2, 1, 0, 0, 0, 0, -1, 4, 1]
-Step - [1, 2, 1, 0, 0, 0, 0, -1, 5, 1]
-Step - [1, 2, 1, 0, 0, 0, 0, -1, 6, 2]
-Step - [1, 2, 1, 0, 0, 0, 0, -1, 7, 2]
-Step - [1, 2, 2, 0, 0, 0, 0, -1, 3, 1]
-Step - [1, 3, 2, 0, 0, 0, 0, -1, 4, 1]
-Step - [2, 3, 2, 0, 0, 0, 0, -1, 5, 1]
-Step - [2, 3, 2, 0, 0, 0, 0, -1, 6, 2]
-Step - [2, 3, 2, 0, 0, 0, 0, -1, 7, 2]
-Step - [2, 3, 3, 0, 0, 0, 0, -1, 3, 1]
-Step - [2, 5, 3, 0, 0, 0, 0, -1, 4, 1]
-Step - [3, 5, 3, 0, 0, 0, 0, -1, 5, 1]
-Step - [3, 5, 3, 0, 0, 0, 0, -1, 6, 2]
-Step - [3, 5, 3, 0, 0, 0, 0, -1, 7, 2]
-Step - [3, 5, 5, 0, 0, 0, 0, -1, 3, 1]
-Step - [3, 8, 5, 0, 0, 0, 0, -1, 4, 1]
-Step - [5, 8, 5, 0, 0, 0, 0, -1, 5, 1]
-Step - [5, 8, 5, 0, 0, 0, 0, -1, 6, 2]
-Step - [5, 8, 5, 0, 0, 0, 0, -1, 7, 2]
-Step - [5, 8, 8, 0, 0, 0, 0, -1, 3, 1]
-Step - [5, 13, 8, 0, 0, 0, 0, -1, 4, 1]
-Final - [5, 13, 8, 0, 0, 0, 0, -1, 5, 1]
-```
-
-### Trap with getchar and halt
-```
-vm load src/sample_programs/getc.o 0
-vm run 0
-
-Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 0]
-Step - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
-Final - [114, 0, 0, 0, 0, 0, 0, 0, 1, 3]
-```
-
-### Example with interrupts -
-![vm_ic.png](vm_ic.PNG)
+![vm-run.gif](vm-run.gif)
 
 
 # References
